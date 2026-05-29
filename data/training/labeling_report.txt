@@ -1,0 +1,43 @@
+BÁO CÁO GÁN NHÃN DỮ LIỆU EMBEDDING
+==================================================
+Tổng số sản phẩm đầu vào: 2000
+Tổng số query-positive pairs tạo được: 9995
+Số query trung bình trên mỗi sản phẩm: 5.00
+Số dòng train: 7996
+Số dòng valid: 999
+Số dòng test: 1000
+Số query unique: 8896
+
+Top 10 category có nhiều query nhất:
+- Phụ kiện thời trang > Phụ kiện nữ > Phụ kiện tóc nữ > Kẹp tóc: 70
+- Ô tô > Phụ kiện ngoại thất ô tô > Phụ tùng thay thế ô tô: 40
+- Trang sức & Đồng hồ > Trang sức thời trang nữ > Bộ trang sức nữ: 40
+- Quần áo, Giày & Trang sức > Nữ > Quần áo > Đồ lót, Ngủ & Thư giãn > Đồ lót > Áo ngực > Áo ngực hàng ngày: 35
+- Đồ dùng cho thú cưng > Ngựa > Dụng cụ chăm sóc và tắm ngựa: 35
+- Quần áo, Giày & Trang sức > Nữ > Giày > Thể thao > Đi bộ: 30
+- Phụ kiện Trang phục > Phụ kiện Nữ > Phụ kiện Tóc Nữ > Kẹp tóc: 30
+- Sắc đẹp & Sức khỏe > Tóc giả & Phụ kiện > Tóc giả tổng hợp > Tóc giả dệt tổng hợp: 30
+- Điện tử > Thiết bị đeo > Đồng hồ thông minh: 30
+- Dụng cụ & Cải thiện nhà > Dụng cụ cầm tay > Socket: 25
+
+20 mẫu query-product để kiểm tra thủ công:
+01. query='bếp propane màu đen' | product_id=B076MFM8LX | source=amazon
+02. query='con cret creatine hcl powder trợ' | product_id=B019ZVU9QO | source=amazon
+03. query='miếng mồi câu trolling inch inch' | product_id=B0793NMRJB | source=amazon
+04. query='loa bluetooth di động bass sốc' | product_id=B08BKY3KVL | source=amazon
+05. query='nhãn dán hỗn hợp shein chính hãng' | product_id=41264582 | source=shein
+06. query='máy xay thịt hệ thống truyền động chịu tải nặng' | product_id=B093BL5Y99 | source=amazon
+07. query='thước kẻ trong suốt' | product_id=40963882 | source=shein
+08. query='bản lề barcaloo chính hãng' | product_id=B09SJ6HF6X | source=amazon
+09. query='pagani design đồng nam chính hãng' | product_id=40023173 | source=shein
+10. query='travelpro crew versapack softside rolling underseat' | product_id=B07QYGJQLY | source=amazon
+11. query='art3d miếng tấm thanh chính hãng' | product_id=B0BWN2DTJD | source=amazon
+12. query='kính thời trang trẻ em màu đen' | product_id=40785873 | source=shein
+13. query='kẹp tóc màu trắng' | product_id=40211168 | source=shein
+14. query='jepeak gói gối trang trí 16x24' | product_id=40688528 | source=shein
+15. query='vòng cổ treo màu bạc' | product_id=40612831 | source=shein
+16. query='dunwell binder with plastic chính hãng' | product_id=B09QM2BMPG | source=amazon
+17. query='áo hoodie active 13% elastane' | product_id=B07YXNN2G1 | source=amazon
+18. query='dây binami chính hãng' | product_id=B08QGM47L2 | source=amazon
+19. query='đi bộ quần áo' | product_id=B08FF49H36 | source=amazon
+20. query='quần lót nam mặc định' | product_id=41400744 | source=shein

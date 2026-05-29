@@ -1,0 +1,73 @@
+CLEANING REPORT - EMBEDDING TRAINING DATA
+============================================================
+Tổng số dòng ban đầu: 9995
+Tổng số dòng sau khi clean: 7781
+Số dòng bị loại: 2214
+Số query được tạo lại: 1095
+Số query chứa 'chính hãng' trước/sau: 2423/0
+Số query chứa 'chất lượng dùng tốt' trước/sau: 769/0
+Tỷ lệ query nhiều tiếng Anh trước/sau: 14.44%/0.00%
+Tỷ lệ query nhiều số/ký hiệu trước/sau: 0.07%/0.00%
+Số dòng train/valid/test mới: 6224/778/779
+
+30 mẫu query trước/sau:
+01. BEFORE: bếp propane màu đen
+    AFTER : bếp propane màu đen
+02. BEFORE: bếp propane nhẹ
+    AFTER : bếp propane nhẹ
+03. BEFORE: bếp propane blackstone chính hãng
+    AFTER : griddle 1666 bàn nướng
+04. BEFORE: bếp propane 22 inch
+    AFTER : griddle 1666 bàn nướng
+05. BEFORE: bếp propane chất lượng dùng tốt
+    AFTER : griddle 1666 bàn nướng
+06. BEFORE: con cret creatine hcl powder trợ
+    AFTER : REMOVED
+07. BEFORE: con cret creatine hcl chính hãng
+    AFTER : REMOVED
+08. BEFORE: creatine con-cret chính hãng
+    AFTER : REMOVED
+09. BEFORE: creatine 180 ml
+    AFTER : REMOVED
+10. BEFORE: creatine chất lượng dùng tốt
+    AFTER : REMOVED
+11. BEFORE: miếng mồi câu trolling inch inch
+    AFTER : miếng mồi câu trolling inch inch
+12. BEFORE: mồi nổi 9 inch
+    AFTER : mồi nổi 9 inch
+13. BEFORE: miếng mồi câu trolling chính hãng
+    AFTER : miếng mồi câu trolling
+14. BEFORE: mồi nổi chất lượng dùng tốt
+    AFTER : miếng mồi câu
+15. BEFORE: mồi nổi kmucutie chính hãng
+    AFTER : mồi nổi kmucutie
+16. BEFORE: loa bluetooth di động bass sốc
+    AFTER : REMOVED
+17. BEFORE: loa bluetooth di động không dây
+    AFTER : loa bluetooth di động không dây
+18. BEFORE: bugani loa bluetooth động loa bluetooth
+    AFTER : REMOVED
+19. BEFORE: loa bluetooth di động chống nước
+    AFTER : loa bluetooth di động chống nước
+20. BEFORE: bugani loa bluetooth động chính hãng
+    AFTER : REMOVED
+21. BEFORE: nhãn dán hỗn hợp shein chính hãng
+    AFTER : nhãn dán hỗn hợp shein
+22. BEFORE: miếng nhãn dán trong chính hãng
+    AFTER : miếng nhãn dán trong
+23. BEFORE: miếng nhãn dán trong suốt pet
+    AFTER : miếng nhãn dán trong suốt pet
+24. BEFORE: nhãn dán hỗn hợp chất lượng dùng tốt
+    AFTER : nhãn dán hỗn hợp
+25. BEFORE: nhãn dán hỗn hợp đa màu
+    AFTER : nhãn dán hỗn hợp đa màu
+26. BEFORE: máy xay thịt hệ thống truyền động chịu tải nặng
+    AFTER : máy xay thịt hệ thống truyền động chịu tải nặng
+27. BEFORE: máy xay thịt lem chính hãng
+    AFTER : máy xay thịt lem
+28. BEFORE: máy xay thịt chất lượng dùng tốt
+    AFTER : máy xay thịt
+29. BEFORE: máy xay thịt tạo dải jerky phẳng và que snack tròn
+    AFTER : máy xay thịt tạo dải jerky phẳng và que snack tròn
+30. BEFORE: lem jerky maker
+    AFTER : REMOVED

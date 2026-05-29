@@ -1,0 +1,2 @@
+model_a = pretrained
+model_b = finetuned

@@ -1,0 +1,79 @@
+query_id,query,group,notes
+q001,giày chạy bộ nam nhẹ,A,query tự nhiên
+q002,tai nghe bluetooth chống ồn,A,query tự nhiên
+q003,dầu dưỡng tóc giảm rụng,A,query tự nhiên
+q004,đèn năng lượng mặt trời ngoài trời,A,query tự nhiên
+q005,ốp lưng điện thoại chống sốc,A,query tự nhiên
+q006,áo đen,B,query mơ hồ
+q007,dụng cụ xe,B,query mơ hồ
+q008,kem dưỡng da,B,query mơ hồ
+q009,ba lô đi học,B,query mơ hồ
+q010,máy sấy tóc,B,query mơ hồ
+q011,áo size XL,C,có size
+q012,dầu dưỡng tóc 250ml,C,có dung tích
+q013,giày size 42 nam,C,có size giày
+q014,ốp lưng màu hồng,C,có màu
+q015,đèn led màu trắng,C,có màu
+q016,bluetooth chong on,D,typo/Anh-Việt
+q017,giay the thao nam,D,thiếu dấu
+q018,tai nghe khong day co mic,D,thiếu dấu
+q019,den nang luong mat troi,D,thiếu dấu
+q020,op lung iphone chong soc,D,thiếu dấu
+q021,áo hoodie nam,A,thời trang
+q022,áo khoác chống nắng nữ,A,thời trang
+q023,quần jean nam ống rộng,A,thời trang
+q024,váy công sở nữ thanh lịch,A,thời trang
+q025,áo polo nam,A,thời trang
+q026,giày nam,B,query mơ hồ
+q027,giày đi bộ cho người lớn tuổi,A,thời trang
+q028,áo sơ mi trắng đi làm,A,thời trang
+q029,quần short nam mặc ở nhà,A,thời trang
+q030,áo giữ nhiệt mùa đông,A,thời trang
+q031,áo khoác chống nước đi phượt,A,thời trang
+q032,áo sweater nam form rộng,A,thời trang
+q033,giày sneaker nữ,A,thời trang
+q034,dép đi trong nhà chống trượt,A,thời trang
+q035,túi xách nữ,B,query mơ hồ
+q036,tai nghe không dây,A,điện tử
+q037,chuột không dây,A,điện tử
+q038,bàn phím cơ,A,điện tử
+q039,loa bluetooth chống nước,A,điện tử
+q040,webcam,B,query mơ hồ
+q041,micro thu âm,A,điện tử
+q042,sạc nhanh,B,query mơ hồ
+q043,pin dự phòng dung lượng lớn,A,điện tử
+q044,ổ cứng di động lưu dữ liệu,A,điện tử
+q045,camera giám sát,A,điện tử
+q046,đèn led học tập chống cận,A,điện tử
+q047,tai nghe có mic họp online,A,điện tử
+q048,giá đỡ laptop chống mỏi cổ,A,điện tử
+q049,bộ phát wifi cho gia đình,A,điện tử
+q050,dầu gội giảm rụng tóc,A,làm đẹp
+q051,kem dưỡng ẩm cho da khô,A,làm đẹp
+q052,sữa rửa mặt da dầu,A,làm đẹp
+q053,serum trị thâm mụn,A,làm đẹp
+q054,kem chống nắng không bết dính,A,làm đẹp
+q055,máy tẩy lông cho nữ,A,làm đẹp
+q056,máy sấy tóc công suất lớn,A,làm đẹp
+q057,nước hoa nữ mùi nhẹ nhàng,A,làm đẹp
+q058,son môi màu hồng đất,C,có màu
+q059,dầu dưỡng tóc mềm mượt,A,làm đẹp
+q060,bàn chải điện cho người lớn,A,làm đẹp
+q061,kem dưỡng trắng da ban đêm,A,làm đẹp
+q062,máy rửa mặt làm sạch sâu,A,làm đẹp
+q063,tinh dầu mọc tóc,A,làm đẹp
+q064,sữa tắm dưỡng ẩm,A,làm đẹp
+q065,tìm đôi giày chạy bộ giá tầm 1 triệu,E,có ngữ cảnh giá
+q066,tai nghe dùng học online không bị rè,A,điện tử
+q067,áo khoác mặc đi Đà Lạt mùa lạnh,E,có ngữ cảnh địa điểm
+q068,kem chống nắng cho da dầu mụn,A,làm đẹp
+q069,quà sinh nhật cho bạn gái dưới 500k,E,có ngữ cảnh quà/giá
+q070,loa bluetooth nghe nhạc ngoài trời,A,điện tử
+q071,balo đựng laptop 15 inch,C,có size
+q072,máy sấy tóc cho salon nhỏ,A,làm đẹp
+q073,bình nước giữ lạnh cả ngày,A,đời sống
+q074,đèn trang trí phòng ngủ màu vàng,C,có màu
+q075,quần áo tập gym cho nam,A,thời trang
+q076,máy cạo râu dùng pin sạc,A,làm đẹp
+q077,sữa rửa mặt cho da nhạy cảm,A,làm đẹp
+q078,kệ sách nhỏ cho phòng trọ,A,đời sống

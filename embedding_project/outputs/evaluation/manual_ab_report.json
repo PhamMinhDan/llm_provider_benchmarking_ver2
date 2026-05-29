@@ -1,0 +1,24 @@
+{
+  "format": "fast_top1",
+  "queries_scored": 30,
+  "pretrained": {
+    "Hit@1": 0.5,
+    "Bad@1": 0.4,
+    "AvgLabel@1": 1.1,
+    "PartialOrBetter@1": 0.6
+  },
+  "finetuned": {
+    "Hit@1": 0.7333333333333333,
+    "Bad@1": 0.1,
+    "AvgLabel@1": 1.6333333333333333,
+    "PartialOrBetter@1": 0.9
+  },
+  "paired_comparison": {
+    "pretrained_wins": 1,
+    "finetuned_wins": 12,
+    "ties": 17,
+    "finetuned_win_rate": 0.4,
+    "pretrained_win_rate": 0.03333333333333333,
+    "tie_rate": 0.5666666666666667
+  }
+}
