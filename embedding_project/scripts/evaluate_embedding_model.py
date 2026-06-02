@@ -127,6 +127,7 @@ def evaluate_model(
     product_ids: list[str],
     corpus_texts: list[str],
     query_texts: list[str],
+    label_query_texts: list[str],
     labels: dict[str, set[str]],
     k: int = 10,
     trust_remote_code: bool = False,
@@ -169,7 +170,7 @@ def evaluate_model(
 
     topk_indices = top_k_search(query_embeddings, corpus_embeddings, k=k)
     retrieved_ids = [[product_ids[idx] for idx in row] for row in topk_indices]
-    return precision_recall_mrr_ndcg_at_k(retrieved_ids, query_texts, labels, k=k)
+    return precision_recall_mrr_ndcg_at_k(retrieved_ids, label_query_texts, labels, k=k)
 
 
 def parse_args() -> argparse.Namespace:
@@ -223,9 +224,9 @@ def main() -> None:
     test_records = load_jsonl(args.test_jsonl)
     labels = load_labels(args.labels_json)
     product_ids, corpus_texts = build_corpus_from_csv(args.products_csv)
-    query_texts = sorted({r["query"] for r in test_records if r.get("query") in labels})
+    label_query_texts = sorted({r["query"] for r in test_records if r.get("query") in labels})
 
-    if not query_texts:
+    if not label_query_texts:
         raise ValueError("No valid queries found for evaluation.")
 
     trust = preset.trust_remote_code
@@ -233,6 +234,7 @@ def main() -> None:
     result["preset"] = preset.name
     result["k"] = args.k
 
+    query_texts = label_query_texts
     if args.preset == "e5-base":
         # E5 retrieval convention: query/passage prefixes improve quality.
         query_texts = [f"query: {q}" for q in query_texts]
@@ -247,6 +249,7 @@ def main() -> None:
             product_ids,
             corpus_texts,
             query_texts,
+            label_query_texts,
             labels,
             k=args.k,
             trust_remote_code=trust,
@@ -259,6 +262,7 @@ def main() -> None:
             product_ids,
             corpus_texts,
             query_texts,
+            label_query_texts,
             labels,
             k=args.k,
             trust_remote_code=trust,
