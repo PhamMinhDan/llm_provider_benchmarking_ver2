@@ -55,6 +55,20 @@ PRESETS: dict[str, EmbeddingModelPreset] = {
         trust_remote_code=True,
         metrics_filename="metrics_bge_m3.json",
     ),
+    "e5-base": EmbeddingModelPreset(
+        name="e5-base",
+        base_model="intfloat/multilingual-e5-base",
+        final_subdir="e5_base_finetuned_final",
+        run_name="e5-base-vi-semantic-search",
+        max_seq_length=512,
+        epochs=1,
+        batch_size=8,
+        learning_rate=1e-5,
+        warmup_ratio=0.1,
+        fp16_default=True,
+        trust_remote_code=False,
+        metrics_filename="metrics_e5_base.json",
+    ),
 }
 
 

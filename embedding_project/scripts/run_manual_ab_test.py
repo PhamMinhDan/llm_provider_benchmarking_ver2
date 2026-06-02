@@ -127,28 +127,41 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--finetuned-model", default=None)
     p.add_argument("--top-k", type=int, default=5)
     p.add_argument("--batch-size", type=int, default=None)
-    p.add_argument(
-        "--output",
-        type=Path,
-        default=Path("embedding_project/outputs/evaluation/manual_ab_results.csv"),
-    )
+    p.add_argument("--output", type=Path, default=None)
     p.add_argument(
         "--blind-output",
         type=Path,
-        default=Path("embedding_project/outputs/evaluation/manual_ab_blind.csv"),
+        default=None,
         help="Ẩn tên model (model_a/model_b) để chấm không bias.",
     )
     return p.parse_args()
+
+
+def default_outputs(preset_name: str) -> tuple[Path, Path, Path]:
+    suffix = "" if preset_name == "minilm" else f"_{preset_name.replace('-', '_')}"
+    base = Path("embedding_project/outputs/evaluation")
+    return (
+        base / f"manual_ab_results{suffix}.csv",
+        base / f"manual_ab_blind{suffix}.csv",
+        base / f"manual_ab_model_mapping{suffix}.txt",
+    )
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
     args = parse_args()
     preset = get_preset(args.preset)
+    default_out, default_blind, default_mapping = default_outputs(preset.name)
+    output_path = args.output or default_out
+    blind_path = args.blind_output or default_blind
+    mapping_path = default_mapping
+
     pretrained = args.pretrained_model or preset.base_model
     finetuned = args.finetuned_model or preset.finetuned_rel_path
-    batch_size = args.batch_size or (8 if args.preset == "bge-m3" else 64)
+    batch_size = args.batch_size or (4 if args.preset == "bge-m3" else 64)
     trust = preset.trust_remote_code
+
+    LOGGER.info("Preset: %s | pretrained=%s | finetuned=%s", preset.name, pretrained, finetuned)
 
     query_df = load_queries(args.queries)
     corpus_df, _, corpus_texts = load_corpus(args.products_csv)
@@ -170,28 +183,38 @@ def main() -> None:
     all_rows.extend(build_result_rows("finetuned", query_df, corpus_df, finetuned_idx))
 
     out_df = pd.DataFrame(all_rows)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    out_df.to_csv(args.output, index=False, encoding="utf-8-sig")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    out_df.to_csv(output_path, index=False, encoding="utf-8-sig")
 
-    # Blind version: shuffle model names per query block for unbiased labeling
     blind_df = out_df.copy()
     blind_map = {"pretrained": "model_a", "finetuned": "model_b"}
     blind_df["model"] = blind_df["model"].map(blind_map)
-    blind_df.to_csv(args.blind_output, index=False, encoding="utf-8-sig")
+    blind_df.to_csv(blind_path, index=False, encoding="utf-8-sig")
 
-    # Mapping file (keep private until scoring done)
-    mapping_path = args.output.parent / "manual_ab_model_mapping.txt"
     mapping_path.write_text(
-        "model_a = pretrained\nmodel_b = finetuned\n",
+        f"preset: {preset.name}\n"
+        f"pretrained: {pretrained}\n"
+        f"finetuned: {finetuned}\n"
+        "model_a = pretrained\n"
+        "model_b = finetuned\n",
         encoding="utf-8",
     )
 
-    LOGGER.info("Saved labeled export: %s", args.output)
-    LOGGER.info("Saved blind export: %s", args.blind_output)
+    LOGGER.info("Saved labeled export: %s", output_path)
+    LOGGER.info("Saved blind export: %s", blind_path)
     LOGGER.info("Model mapping: %s", mapping_path)
-    print(f"\nHoàn tất. Mở file để chấm tay:\n- {args.blind_output.resolve()}")
-    print("Điền cột label: 0=irrelevant, 1=partial, 2=relevant")
-    print(f"Sau khi chấm xong, chạy score_manual_ab.py với file đã điền label.")
+    print(f"\nHoàn tất [{preset.name}].")
+    print(f"- Full (có tên model): {output_path.resolve()}")
+    print(f"- Chấm blind:         {blind_path.resolve()}")
+    print("Label: 0=irrelevant, 1=partial, 2=relevant (top-5 mỗi query)")
+    print("\nChấm nhanh top-1 (30 query):")
+    print(
+        "  python embedding_project/scripts/create_manual_ab_fast_sample.py "
+        f"--input {output_path.as_posix()} "
+        f"--output embedding_project/outputs/evaluation/manual_ab_fast_top1_{preset.name.replace('-', '_')}.csv"
+    )
+    print("\nSau khi chấm:")
+    print("  python embedding_project/scripts/score_manual_ab.py --input <file_da_cham.csv>")
 
 
 if __name__ == "__main__":

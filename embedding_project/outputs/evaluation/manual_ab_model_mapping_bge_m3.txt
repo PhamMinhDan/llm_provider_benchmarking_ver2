@@ -1,0 +1,5 @@
+preset: bge-m3
+pretrained: BAAI/bge-m3
+finetuned: embedding_project/models/bge_m3_finetuned_final
+model_a = pretrained
+model_b = finetuned

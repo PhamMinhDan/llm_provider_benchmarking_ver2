@@ -26,19 +26,26 @@ Gợi ý phân bổ:
 
 ## Bước 2 — Chạy A/B export kết quả search
 
+### MiniLM (model 1)
+
 ```bash
-python embedding_project/scripts/run_manual_ab_test.py \
-  --queries embedding_project/data/manual_eval_queries.csv \
-  --products-csv embedding_project/data/merged_products_vi_cleaned.csv \
-  --pretrained-model sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 \
-  --finetuned-model embedding_project/models/minilm_finetuned_final \
-  --top-k 5
+python embedding_project/scripts/run_manual_ab_test.py --preset minilm --top-k 5
+```
+
+Output: `manual_ab_results.csv`, `manual_ab_blind.csv`
+
+### BGE-M3 (model 2)
+
+```bash
+python embedding_project/scripts/run_manual_ab_test.py --preset bge-m3 --top-k 5 --batch-size 4
 ```
 
 Output:
-- `embedding_project/outputs/evaluation/manual_ab_results.csv` (có tên model)
-- `embedding_project/outputs/evaluation/manual_ab_blind.csv` (ẩn model: model_a/model_b)
-- `embedding_project/outputs/evaluation/manual_ab_model_mapping.txt`
+- `manual_ab_results_bge_m3.csv`
+- `manual_ab_blind_bge_m3.csv`
+- `manual_ab_model_mapping_bge_m3.txt`
+
+*(BGE-M3 trên CPU rất chậm — ưu tiên GPU hoặc chạy qua đêm.)*
 
 ---
 
@@ -56,12 +63,31 @@ Lưu file đã chấm: `manual_ab_scored.csv`
 
 ---
 
+## Bước 3b — Chấm nhanh top-1 (30 query, khuyên dùng)
+
+```bash
+# BGE-M3
+python embedding_project/scripts/create_manual_ab_fast_sample.py \
+  --input embedding_project/outputs/evaluation/manual_ab_results_bge_m3.csv \
+  --output embedding_project/outputs/evaluation/manual_ab_fast_top1_bge_m3.csv
+
+# MiniLM
+python embedding_project/scripts/create_manual_ab_fast_sample.py
+```
+
+Chấm cột: `pretrained_label`, `finetuned_label` (0/1/2), `winner` (pretrained/finetuned/tie)
+
 ## Bước 4 — Tính điểm và chọn model
 
 ```bash
+# Full top-5
 python embedding_project/scripts/score_manual_ab.py \
-  --input embedding_project/outputs/evaluation/manual_ab_scored.csv \
+  --input embedding_project/outputs/evaluation/manual_ab_scored_bge_m3.csv \
   --top-k 5
+
+# Fast top-1
+python embedding_project/scripts/score_manual_ab.py \
+  --input embedding_project/outputs/evaluation/manual_ab_fast_top1_bge_m3.csv
 ```
 
 Xem report: `embedding_project/outputs/evaluation/manual_ab_report.json`

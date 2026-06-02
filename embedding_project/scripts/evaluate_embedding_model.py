@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 from collections import defaultdict
@@ -8,8 +9,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import torch
 from sentence_transformers import SentenceTransformer
-from tqdm import tqdm
 
 from model_presets import get_preset
 
@@ -117,6 +118,10 @@ def load_model(model_name_or_path: str, trust_remote_code: bool = False) -> Sent
     return SentenceTransformer(model_name_or_path)
 
 
+def model_cache_key(model_name_or_path: str) -> str:
+    return hashlib.sha256(model_name_or_path.encode("utf-8")).hexdigest()[:16]
+
+
 def evaluate_model(
     model_name_or_path: str,
     product_ids: list[str],
@@ -126,24 +131,41 @@ def evaluate_model(
     k: int = 10,
     trust_remote_code: bool = False,
     encode_batch_size: int = 128,
+    cache_dir: Path | None = None,
 ) -> dict[str, float]:
     LOGGER.info("Loading model for evaluation: %s", model_name_or_path)
     model = load_model(model_name_or_path, trust_remote_code=trust_remote_code)
 
-    corpus_embeddings = model.encode(
-        corpus_texts,
-        batch_size=encode_batch_size,
-        show_progress_bar=True,
-        convert_to_numpy=True,
-    )
-    query_embeddings = model.encode(
-        query_texts,
-        batch_size=encode_batch_size,
-        show_progress_bar=True,
-        convert_to_numpy=True,
-    )
-    corpus_embeddings = normalize(corpus_embeddings)
-    query_embeddings = normalize(query_embeddings)
+    key = model_cache_key(model_name_or_path)
+    corpus_cache = cache_dir / f"{key}_corpus.npy" if cache_dir else None
+    query_cache = cache_dir / f"{key}_queries.npy" if cache_dir else None
+
+    if corpus_cache and corpus_cache.is_file():
+        corpus_embeddings = np.load(corpus_cache)
+    else:
+        corpus_embeddings = model.encode(
+            corpus_texts,
+            batch_size=encode_batch_size,
+            show_progress_bar=True,
+            convert_to_numpy=True,
+        )
+        corpus_embeddings = normalize(np.asarray(corpus_embeddings, dtype=np.float32))
+        if corpus_cache:
+            corpus_cache.parent.mkdir(parents=True, exist_ok=True)
+            np.save(corpus_cache, corpus_embeddings)
+
+    if query_cache and query_cache.is_file():
+        query_embeddings = np.load(query_cache)
+    else:
+        query_embeddings = model.encode(
+            query_texts,
+            batch_size=encode_batch_size,
+            show_progress_bar=True,
+            convert_to_numpy=True,
+        )
+        query_embeddings = normalize(np.asarray(query_embeddings, dtype=np.float32))
+        if query_cache:
+            np.save(query_cache, query_embeddings)
 
     topk_indices = top_k_search(query_embeddings, corpus_embeddings, k=k)
     retrieved_ids = [[product_ids[idx] for idx in row] for row in topk_indices]
@@ -152,7 +174,7 @@ def evaluate_model(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Evaluate pretrained vs fine-tuned embedding models.")
-    parser.add_argument("--preset", choices=["minilm", "bge-m3"], default="minilm")
+    parser.add_argument("--preset", choices=["minilm", "bge-m3", "e5-base"], default="minilm")
     parser.add_argument("--test-jsonl", type=Path, default=Path("embedding_project/data/test_cleaned.jsonl"))
     parser.add_argument(
         "--labels-json",
@@ -169,6 +191,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--k", type=int, default=10)
     parser.add_argument("--encode-batch-size", type=int, default=None)
+    parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=Path("embedding_project/outputs/evaluation/embedding_cache"),
+        help="Cache corpus/query embeddings (giảm thời gian chạy lại).",
+    )
+    parser.add_argument("--no-cache", action="store_true")
+    parser.add_argument("--only-pretrained", action="store_true")
+    parser.add_argument("--only-finetuned", action="store_true")
     return parser.parse_args()
 
 
@@ -180,7 +211,14 @@ def main() -> None:
     pretrained = args.pretrained_model or preset.base_model
     finetuned = args.finetuned_model or preset.finetuned_rel_path
     output = args.output or Path("embedding_project/outputs/evaluation") / preset.metrics_filename
-    encode_batch = args.encode_batch_size or (16 if args.preset == "bge-m3" else 128)
+    if torch.cuda.is_available():
+        encode_batch = args.encode_batch_size or (8 if args.preset == "bge-m3" else 128)
+        LOGGER.info("Using CUDA: %s", torch.cuda.get_device_name(0))
+    else:
+        encode_batch = args.encode_batch_size or (4 if args.preset == "bge-m3" else 64)
+        LOGGER.warning("Không có GPU — BGE-M3 trên CPU có thể mất 1–3 giờ.")
+
+    cache_dir = None if args.no_cache else args.cache_dir / args.preset
 
     test_records = load_jsonl(args.test_jsonl)
     labels = load_labels(args.labels_json)
@@ -193,26 +231,40 @@ def main() -> None:
     trust = preset.trust_remote_code
     result = defaultdict(dict)
     result["preset"] = preset.name
-    result["pretrained"] = evaluate_model(
-        pretrained,
-        product_ids,
-        corpus_texts,
-        query_texts,
-        labels,
-        k=args.k,
-        trust_remote_code=trust and pretrained == preset.base_model,
-        encode_batch_size=encode_batch,
-    )
-    result["finetuned"] = evaluate_model(
-        finetuned,
-        product_ids,
-        corpus_texts,
-        query_texts,
-        labels,
-        k=args.k,
-        trust_remote_code=trust,
-        encode_batch_size=encode_batch,
-    )
+    result["k"] = args.k
+
+    if args.preset == "e5-base":
+        # E5 retrieval convention: query/passage prefixes improve quality.
+        query_texts = [f"query: {q}" for q in query_texts]
+        corpus_texts = [f"passage: {t}" for t in corpus_texts]
+
+    run_pretrained = not args.only_finetuned
+    run_finetuned = not args.only_pretrained
+
+    if run_pretrained:
+        result["pretrained"] = evaluate_model(
+            pretrained,
+            product_ids,
+            corpus_texts,
+            query_texts,
+            labels,
+            k=args.k,
+            trust_remote_code=trust,
+            encode_batch_size=encode_batch,
+            cache_dir=cache_dir,
+        )
+    if run_finetuned:
+        result["finetuned"] = evaluate_model(
+            finetuned,
+            product_ids,
+            corpus_texts,
+            query_texts,
+            labels,
+            k=args.k,
+            trust_remote_code=trust,
+            encode_batch_size=encode_batch,
+            cache_dir=cache_dir,
+        )
 
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
