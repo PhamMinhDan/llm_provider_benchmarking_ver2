@@ -21,7 +21,7 @@ from qdrant_client.models import (
     VectorParams,
 )
 
-from vector_db.config import settings
+from vector_db.config import get_settings
 
 LOGGER = logging.getLogger(__name__)
 
@@ -62,22 +62,22 @@ class QdrantService:
         if self._initialized:
             return
         self.client: QdrantClient | None = None
-        self.collection_name = settings.QDRANT_COLLECTION
+        self.collection_name = get_settings().QDRANT_COLLECTION
         self._initialized = True
 
     def _ensure_client(self) -> QdrantClient:
         if self.client is None:
-            url = settings.QDRANT_URL
+            url = get_settings().QDRANT_URL
             LOGGER.info("Connecting Qdrant: %s", url)
             client_kwargs: dict[str, Any] = {
                 "url": url,
                 "timeout": 120,
                 "check_compatibility": False,
             }
-            if settings.QDRANT_API_KEY:
-                client_kwargs["api_key"] = settings.QDRANT_API_KEY
+            if get_settings().QDRANT_API_KEY:
+                client_kwargs["api_key"] = get_settings().QDRANT_API_KEY
             # Chỉ dùng https=True khi URL là http:// (client tự nâng cấp TLS)
-            if settings.QDRANT_HTTPS and url.startswith("http://"):
+            if get_settings().QDRANT_HTTPS and url.startswith("http://"):
                 client_kwargs["https"] = True
             self.client = QdrantClient(**client_kwargs)
             LOGGER.info("Collection: %s", self.collection_name)
@@ -196,7 +196,7 @@ class QdrantService:
         brand_filter: str | None = None,
         price_range: tuple[float, float] | None = None,
     ) -> list[dict[str, Any]]:
-        top_k = top_k or settings.DEFAULT_TOP_K
+        top_k = top_k or get_settings().DEFAULT_TOP_K
         conditions = []
 
         if category_filter:

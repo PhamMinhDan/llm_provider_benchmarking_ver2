@@ -55,7 +55,9 @@ def _load_dotenv() -> None:
                 continue
             key, _, value = line.partition("=")
             key, value = key.strip(), value.strip().strip('"').strip("'")
-            os.environ[key] = value
+            # Không ghi đè biến đã set (CLI apply_runtime_config, shell export)
+            if key not in os.environ:
+                os.environ[key] = value
 
 
 @dataclass(frozen=True)
@@ -67,7 +69,8 @@ class Settings:
 
     EMBEDDING_MODEL_PATH: str = ""
     EMBEDDING_BATCH_SIZE: int = 4
-    EMBEDDING_TRUST_REMOTE_CODE: bool = True
+    EMBEDDING_TRUST_REMOTE_CODE: bool = False
+    EMBEDDING_USE_E5_PREFIX: bool = False
 
     PRODUCTS_CSV: str = ""
     PRODUCTS_JSONL: str = ""
@@ -87,17 +90,27 @@ class Settings:
         use_https = os.getenv("QDRANT_HTTPS", "false").lower() in ("1", "true", "yes")
         qdrant_url = normalize_qdrant_url(raw_url, use_https)
 
+        model_path = os.getenv("EMBEDDING_MODEL_PATH", default_model)
+        e5_env = os.getenv("EMBEDDING_USE_E5_PREFIX", "").lower()
+        if e5_env in ("1", "true", "yes"):
+            use_e5 = True
+        elif e5_env in ("0", "false", "no"):
+            use_e5 = False
+        else:
+            use_e5 = "e5" in Path(model_path).name.lower()
+
         return cls(
             QDRANT_URL=qdrant_url,
             QDRANT_API_KEY=os.getenv("QDRANT_API_KEY", ""),
             QDRANT_COLLECTION=os.getenv("QDRANT_COLLECTION", "products_vi_bge_m3"),
             QDRANT_HTTPS=use_https,
-            EMBEDDING_MODEL_PATH=os.getenv("EMBEDDING_MODEL_PATH", default_model),
+            EMBEDDING_MODEL_PATH=model_path,
             EMBEDDING_BATCH_SIZE=int(os.getenv("EMBEDDING_BATCH_SIZE", "4")),
             EMBEDDING_TRUST_REMOTE_CODE=os.getenv(
-                "EMBEDDING_TRUST_REMOTE_CODE", "true"
+                "EMBEDDING_TRUST_REMOTE_CODE", "false"
             ).lower()
             in ("1", "true", "yes"),
+            EMBEDDING_USE_E5_PREFIX=use_e5,
             PRODUCTS_CSV=os.getenv("PRODUCTS_CSV", default_csv),
             PRODUCTS_JSONL=os.getenv("PRODUCTS_JSONL", default_jsonl),
             DEFAULT_TOP_K=int(os.getenv("DEFAULT_TOP_K", "10")),
@@ -107,6 +120,39 @@ class Settings:
 @lru_cache
 def get_settings() -> Settings:
     return Settings.from_env()
+
+
+def apply_runtime_config(
+    *,
+    collection: str | None = None,
+    model_path: str | None = None,
+    use_e5_prefix: bool | None = None,
+    encode_batch_size: int | None = None,
+) -> Settings:
+    """Ghi đè cấu hình runtime (CLI) và reset singleton services."""
+    if collection:
+        os.environ["QDRANT_COLLECTION"] = collection
+    if model_path:
+        p = Path(model_path)
+        if not p.is_absolute():
+            p = REPO_ROOT / p
+        os.environ["EMBEDDING_MODEL_PATH"] = str(p.resolve())
+    if use_e5_prefix is not None:
+        os.environ["EMBEDDING_USE_E5_PREFIX"] = "true" if use_e5_prefix else "false"
+    if encode_batch_size is not None:
+        os.environ["EMBEDDING_BATCH_SIZE"] = str(encode_batch_size)
+
+    get_settings.cache_clear()
+    reset_service_singletons()
+    return get_settings()
+
+
+def reset_service_singletons() -> None:
+    from vector_db.embedding_service import EmbeddingService
+    from vector_db.qdrant_service import QdrantService
+
+    EmbeddingService._instance = None
+    QdrantService._instance = None
 
 
 settings = get_settings()

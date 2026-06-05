@@ -1,11 +1,15 @@
 """
-Encode products → BGE-M3 fine-tuned → upsert Qdrant.
-
-Mặc định: embedding_project/data/merged_products_vi_cleaned.csv (searchable_text)
+Encode products → embedding model → upsert Qdrant.
 
 Usage (repo root):
+  # E5-base fine-tuned 2 epoch — collection mới
+  python vector_db/03_index_to_qdrant.py --recreate \\
+    --collection products_vi_e5_2ep \\
+    --model-path embedding_project/models/e5_base_finetuned_2ep_final \\
+    --e5-prefix --encode-batch-size 8
+
+  # BGE-M3 (mặc định cũ)
   python vector_db/03_index_to_qdrant.py --recreate
-  python vector_db/03_index_to_qdrant.py --products-csv embedding_project/data/merged_products_vi_cleaned.csv
 """
 
 from __future__ import annotations
@@ -20,13 +24,15 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from vector_db.config import settings
+from vector_db.config import apply_runtime_config, settings
 from vector_db.data_loader import load_products
-from vector_db.embedding_service import embedding_service
-from vector_db.qdrant_service import make_vector_id, qdrant_service
+from vector_db.qdrant_service import make_vector_id
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 LOGGER = logging.getLogger("index_to_qdrant")
+
+DEFAULT_E5_2EP_MODEL = _REPO_ROOT / "embedding_project/models/e5_base_finetuned_2ep_final"
+DEFAULT_E5_2EP_COLLECTION = "products_vi_e5_2ep"
 
 
 def build_payload(product: dict) -> dict:
@@ -59,8 +65,31 @@ def main(
     from_files: bool,
     vectors_npy: Path | None,
     payloads_json: Path | None,
+    collection: str | None = None,
+    model_path: str | None = None,
+    use_e5_prefix: bool | None = None,
+    preset_e5_2ep: bool = False,
 ) -> None:
     import numpy as np
+    from vector_db.embedding_service import EmbeddingService
+    from vector_db.qdrant_service import QdrantService
+
+    if preset_e5_2ep:
+        collection = collection or DEFAULT_E5_2EP_COLLECTION
+        model_path = model_path or str(DEFAULT_E5_2EP_MODEL)
+        use_e5_prefix = True
+
+    cfg = apply_runtime_config(
+        collection=collection,
+        model_path=model_path,
+        use_e5_prefix=use_e5_prefix,
+        encode_batch_size=encode_batch_size,
+    )
+    LOGGER.info("Model: %s", cfg.EMBEDDING_MODEL_PATH)
+    LOGGER.info("Collection: %s | E5 prefix: %s", cfg.QDRANT_COLLECTION, cfg.EMBEDDING_USE_E5_PREFIX)
+
+    embedding_service = EmbeddingService()
+    qdrant_service = QdrantService()
 
     if from_files and vectors_npy and payloads_json:
         vectors = np.load(vectors_npy)
@@ -81,7 +110,7 @@ def main(
     vector_size = len(embeddings[0])
     qdrant_service.create_collection(vector_size=vector_size, recreate=recreate_collection)
 
-    LOGGER.info("Upsert → collection '%s'", settings.QDRANT_COLLECTION)
+    LOGGER.info("Upsert → collection '%s'", cfg.QDRANT_COLLECTION)
     uploaded = qdrant_service.upsert_products(
         payloads=payloads,
         embeddings=embeddings,
@@ -96,29 +125,39 @@ def main(
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Index products to Qdrant (BGE-M3).")
+    p = argparse.ArgumentParser(description="Index products to Qdrant.")
     p.add_argument(
         "--products-csv",
         default=settings.PRODUCTS_CSV,
         help="CSV merged_products_vi_cleaned (searchable_text)",
     )
+    p.add_argument("--products-jsonl", default=None, help="Dùng JSONL thay CSV")
+    p.add_argument("--batch-size", type=int, default=50, help="Upsert batch size")
+    p.add_argument("--encode-batch-size", type=int, default=None)
+    p.add_argument("--recreate", action="store_true", help="Xóa và tạo lại collection")
     p.add_argument(
-        "--products-jsonl",
+        "--collection",
         default=None,
-        help="Nếu set: dùng JSONL thay CSV",
+        help=f"Tên collection Qdrant (vd. {DEFAULT_E5_2EP_COLLECTION})",
     )
-    p.add_argument("--batch-size", type=int, default=50)
-    p.add_argument("--encode-batch-size", type=int, default=settings.EMBEDDING_BATCH_SIZE)
-    p.add_argument("--recreate", action="store_true")
+    p.add_argument(
+        "--model-path",
+        default=None,
+        help="Đường dẫn model fine-tuned",
+    )
+    p.add_argument(
+        "--e5-prefix",
+        action="store_true",
+        help="Thêm prefix query:/passage: (E5)",
+    )
+    p.add_argument(
+        "--preset-e5-2ep",
+        action="store_true",
+        help=f"Shortcut: model={DEFAULT_E5_2EP_MODEL.name}, collection={DEFAULT_E5_2EP_COLLECTION}",
+    )
     p.add_argument("--from-files", action="store_true")
-    p.add_argument(
-        "--vectors",
-        default=str(_REPO_ROOT / "embedding_project/outputs/embeddings/product_vectors_bge_m3.npy"),
-    )
-    p.add_argument(
-        "--payloads",
-        default=str(_REPO_ROOT / "embedding_project/outputs/embeddings/product_payloads_bge_m3.json"),
-    )
+    p.add_argument("--vectors", default="")
+    p.add_argument("--payloads", default="")
     return p.parse_args()
 
 
@@ -128,9 +167,13 @@ if __name__ == "__main__":
     main(
         products_path=products_path,
         batch_size=args.batch_size,
-        encode_batch_size=args.encode_batch_size,
+        encode_batch_size=args.encode_batch_size or settings.EMBEDDING_BATCH_SIZE,
         recreate_collection=args.recreate,
         from_files=args.from_files,
-        vectors_npy=Path(args.vectors) if args.from_files else None,
-        payloads_json=Path(args.payloads) if args.from_files else None,
+        vectors_npy=Path(args.vectors) if args.from_files and args.vectors else None,
+        payloads_json=Path(args.payloads) if args.from_files and args.payloads else None,
+        collection=args.collection,
+        model_path=args.model_path,
+        use_e5_prefix=True if args.e5_prefix else None,
+        preset_e5_2ep=args.preset_e5_2ep,
     )
