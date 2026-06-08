@@ -63,6 +63,10 @@ def load_corpus(csv_path: Path) -> tuple[pd.DataFrame, list[str], list[str]]:
     return df, df["product_id"].tolist(), df["searchable_text"].astype(str).tolist()
 
 
+def apply_e5_prefix(queries: list[str], corpus_texts: list[str]) -> tuple[list[str], list[str]]:
+    return [f"query: {q}" for q in queries], [f"passage: {t}" for t in corpus_texts]
+
+
 def search_top_k(
     model_path: str,
     queries: list[str],
@@ -70,14 +74,18 @@ def search_top_k(
     k: int,
     batch_size: int,
     trust_remote_code: bool = False,
+    use_e5_prefix: bool = False,
 ) -> list[list[int]]:
     kwargs = {"trust_remote_code": True} if trust_remote_code else {}
     model = SentenceTransformer(model_path, **kwargs)
+    encode_queries, encode_corpus = queries, corpus_texts
+    if use_e5_prefix:
+        encode_queries, encode_corpus = apply_e5_prefix(queries, corpus_texts)
     corpus_emb = normalize(
-        model.encode(corpus_texts, batch_size=batch_size, show_progress_bar=True, convert_to_numpy=True)
+        model.encode(encode_corpus, batch_size=batch_size, show_progress_bar=True, convert_to_numpy=True)
     )
     query_emb = normalize(
-        model.encode(queries, batch_size=batch_size, show_progress_bar=True, convert_to_numpy=True)
+        model.encode(encode_queries, batch_size=batch_size, show_progress_bar=True, convert_to_numpy=True)
     )
     return top_k_indices(query_emb, corpus_emb, k=k).tolist()
 
@@ -122,9 +130,14 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("embedding_project/data/merged_products_vi_cleaned.csv"),
     )
-    p.add_argument("--preset", choices=["minilm", "bge-m3"], default="minilm")
+    p.add_argument("--preset", choices=["minilm", "bge-m3", "e5-base"], default="minilm")
     p.add_argument("--pretrained-model", default=None)
     p.add_argument("--finetuned-model", default=None)
+    p.add_argument(
+        "--use-e5-prefix",
+        action="store_true",
+        help="Thêm query:/passage: (mặc định bật khi --preset e5-base).",
+    )
     p.add_argument("--top-k", type=int, default=5)
     p.add_argument("--batch-size", type=int, default=None)
     p.add_argument("--output", type=Path, default=None)
@@ -137,29 +150,64 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def default_outputs(preset_name: str) -> tuple[Path, Path, Path]:
+def default_outputs(preset_name: str) -> tuple[Path, Path, Path, Path]:
     suffix = "" if preset_name == "minilm" else f"_{preset_name.replace('-', '_')}"
     base = Path("embedding_project/outputs/evaluation")
     return (
         base / f"manual_ab_results{suffix}.csv",
         base / f"manual_ab_blind{suffix}.csv",
         base / f"manual_ab_model_mapping{suffix}.txt",
+        base / f"manual_ab_top1_compare{suffix}.csv",
     )
+
+
+def build_top1_compare(
+    query_df: pd.DataFrame,
+    corpus_df: pd.DataFrame,
+    pretrained_idx: list[list[int]],
+    finetuned_idx: list[list[int]],
+) -> pd.DataFrame:
+    rows: list[dict] = []
+    for qpos, (_, qrow) in enumerate(query_df.iterrows()):
+        pre = corpus_df.iloc[pretrained_idx[qpos][0]]
+        ft = corpus_df.iloc[finetuned_idx[qpos][0]]
+        rows.append(
+            {
+                "query_id": qrow["query_id"],
+                "query": qrow["query"],
+                "group": qrow.get("group", ""),
+                "pretrained_product_id": pre["product_id"],
+                "pretrained_title": pre.get("title", ""),
+                "pretrained_category": pre.get("category", ""),
+                "finetuned_product_id": ft["product_id"],
+                "finetuned_title": ft.get("title", ""),
+                "finetuned_category": ft.get("category", ""),
+                "same_top1": pre["product_id"] == ft["product_id"],
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
     args = parse_args()
     preset = get_preset(args.preset)
-    default_out, default_blind, default_mapping = default_outputs(preset.name)
+    default_out, default_blind, default_mapping, default_compare = default_outputs(preset.name)
     output_path = args.output or default_out
     blind_path = args.blind_output or default_blind
     mapping_path = default_mapping
+    compare_path = default_compare
 
     pretrained = args.pretrained_model or preset.base_model
     finetuned = args.finetuned_model or preset.finetuned_rel_path
-    batch_size = args.batch_size or (4 if args.preset == "bge-m3" else 64)
+    if args.preset == "bge-m3":
+        batch_size = args.batch_size or 4
+    elif args.preset == "e5-base":
+        batch_size = args.batch_size or 16
+    else:
+        batch_size = args.batch_size or 64
     trust = preset.trust_remote_code
+    use_e5_prefix = args.use_e5_prefix or args.preset == "e5-base"
 
     LOGGER.info("Preset: %s | pretrained=%s | finetuned=%s", preset.name, pretrained, finetuned)
 
@@ -171,11 +219,23 @@ def main() -> None:
 
     LOGGER.info("Searching with pretrained model...")
     pretrained_idx = search_top_k(
-        pretrained, queries, corpus_texts, args.top_k, batch_size, trust_remote_code=trust
+        pretrained,
+        queries,
+        corpus_texts,
+        args.top_k,
+        batch_size,
+        trust_remote_code=trust,
+        use_e5_prefix=use_e5_prefix,
     )
     LOGGER.info("Searching with fine-tuned model...")
     finetuned_idx = search_top_k(
-        finetuned, queries, corpus_texts, args.top_k, batch_size, trust_remote_code=trust
+        finetuned,
+        queries,
+        corpus_texts,
+        args.top_k,
+        batch_size,
+        trust_remote_code=trust,
+        use_e5_prefix=use_e5_prefix,
     )
 
     all_rows = []
@@ -191,21 +251,29 @@ def main() -> None:
     blind_df["model"] = blind_df["model"].map(blind_map)
     blind_df.to_csv(blind_path, index=False, encoding="utf-8-sig")
 
+    compare_df = build_top1_compare(query_df, corpus_df, pretrained_idx, finetuned_idx)
+    compare_df.to_csv(compare_path, index=False, encoding="utf-8-sig")
+
     mapping_path.write_text(
         f"preset: {preset.name}\n"
         f"pretrained: {pretrained}\n"
         f"finetuned: {finetuned}\n"
+        f"use_e5_prefix: {use_e5_prefix}\n"
         "model_a = pretrained\n"
         "model_b = finetuned\n",
         encoding="utf-8",
     )
 
+    same_top1 = int(compare_df["same_top1"].sum())
     LOGGER.info("Saved labeled export: %s", output_path)
     LOGGER.info("Saved blind export: %s", blind_path)
+    LOGGER.info("Saved top-1 compare: %s", compare_path)
     LOGGER.info("Model mapping: %s", mapping_path)
     print(f"\nHoàn tất [{preset.name}].")
     print(f"- Full (có tên model): {output_path.resolve()}")
     print(f"- Chấm blind:         {blind_path.resolve()}")
+    print(f"- Top-1 so sánh:      {compare_path.resolve()}")
+    print(f"- Cùng top-1: {same_top1}/{len(compare_df)} query")
     print("Label: 0=irrelevant, 1=partial, 2=relevant (top-5 mỗi query)")
     print("\nChấm nhanh top-1 (30 query):")
     print(

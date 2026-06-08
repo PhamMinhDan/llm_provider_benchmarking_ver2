@@ -1,0 +1,15 @@
+
+=== train_cleaned.jsonl -> train_cleaned_v2.jsonl ===
+Before: 6224 | After: 6071 | Removed: 153
+  pet_product_human_query: 119
+  running_shoe_wrong_category: 23
+  generic_shoe_work_boot: 5
+  headphone_query_truck_driver: 4
+  blocked_product_B07BL2HT5N: 1
+  running_shoe_weak_match: 1
+
+=== valid_cleaned.jsonl -> valid_cleaned_v2.jsonl ===
+Before: 778 | After: 761 | Removed: 17
+  pet_product_human_query: 15
+  running_shoe_wrong_category: 1
+  running_shoe_weak_match: 1

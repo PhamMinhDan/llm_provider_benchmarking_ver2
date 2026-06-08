@@ -1,0 +1,6 @@
+preset: e5-base
+pretrained: intfloat/multilingual-e5-base
+finetuned: embedding_project/models/e5_base_finetuned_2ep_final
+use_e5_prefix: True
+model_a = pretrained
+model_b = finetuned
