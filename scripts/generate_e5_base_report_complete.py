@@ -319,14 +319,13 @@ def main() -> None:
         [
             [
                 "Audit & làm sạch train",
-                "Script rà soát query–positive sai intent (giày chạy bộ, tai nghe, …); "
-                "bỏ/sửa cặp label sai trước khi train lại.",
+                "Script clean_train_intent_v2.py — đã loại 153 cặp train (xem Mục 7.1).",
                 "Giảm học association sai; metric thủ công cải thiện.",
             ],
             [
                 "Hard negative theo category",
-                "Mine SP cùng từ khóa nhưng khác category làm negative trong batch "
-                "(ví dụ query 'tai nghe chống ồn' + negative B0CBQW9MF1).",
+                "Mine SP khác category + khác intent, train TripletLoss "
+                "(đã triển khai v2 — xem Mục 7).",
                 "Giảm category pollution; đẩy SP đúng ngành lên top.",
             ],
             [
@@ -363,7 +362,132 @@ def main() -> None:
     ]:
         doc.add_paragraph(item, style="List Bullet")
 
-    doc.add_heading("7. Kết luận và khuyến nghị", level=1)
+    doc.add_heading("7. Cải tiến pipeline đã triển khai (giai đoạn 2)", level=1)
+    doc.add_paragraph(
+        "Sau khi phát hiện metric test_cleaned lạc quan nhưng query thực tế vẫn fail, "
+        "đã triển khai chuỗi cải tiến: làm sạch train → mine hard negative có kiểm soát → "
+        "fine-tune bổ sung bằng TripletLoss từ checkpoint 1 epoch (ít overfit hơn 2 epoch)."
+    )
+
+    doc.add_heading("7.1. Làm sạch dữ liệu huấn luyện (train_cleaned_v2)", level=2)
+    doc.add_paragraph(
+        "Script: embedding_project/scripts/clean_train_intent_v2.py"
+    )
+    add_table(
+        doc,
+        ["Tập", "Trước", "Sau", "Đã loại"],
+        [
+            ["train_cleaned_v2.jsonl", "6.224", "6.071", "153 cặp"],
+            ["valid_cleaned_v2.jsonl", "778", "761", "17 cặp"],
+        ],
+    )
+    doc.add_paragraph("Các nhóm cặp bị loại (train):")
+    for item in [
+        "pet_product_human_query (119): query người nhưng positive là đồ thú cưng.",
+        "running_shoe_wrong_category (23): query giày chạy bộ gán positive giày công nghiệp/sneaker.",
+        "generic_shoe_work_boot (5), headphone_query_truck_driver (4): pollution điển hình.",
+        "Log chi tiết: embedding_project/data/train_removed_pairs_v2.jsonl",
+    ]:
+        doc.add_paragraph(item, style="List Bullet")
+
+    doc.add_heading("7.2. Mine hard negative theo category (v2)", level=2)
+    doc.add_paragraph(
+        "Script: embedding_project/scripts/mine_category_hard_negatives_from_qdrant.py. "
+        "Mine từ Qdrant bằng vector search, xuất triplets JSONL cho TripletLoss."
+    )
+    doc.add_paragraph("Pipeline mine v2 — điều kiện negative (tất cả phải thỏa):")
+    for item in [
+        "product_id ≠ positive; category leaf khác sau normalize (loại sneaker↔sneaker chỉ khác nam/nữ).",
+        "Không cùng intent cụ thể với query (tai nghe, chạy bộ, sneaker, máy sấy tóc, …).",
+        "Không cùng subtype giày sai (chạy bộ vs sneaker thể thao); giữ giày công nghiệp/mũi thép.",
+        "Loại cặp nhầm: tai nghe ↔ bông tai; giày trượt ↔ sneaker.",
+        "Score cosine trong band [0.48, 0.84] — không quá dễ, không quá giống (false negative).",
+        "Bỏ top-1 search (min_rank=2); mỗi negative_product_id tái sử dụng tối đa 5 lần.",
+    ]:
+        doc.add_paragraph(item, style="List Bullet")
+
+    doc.add_paragraph(
+        "Kết quả mine full (2.000 anchor, neg_per_anchor=1): "
+        "180 triplets / 1.820 anchor không tìm được negative hợp lệ. "
+        "File: embedding_project/data/train_triplets_category_hardneg_v2.jsonl. "
+        "Ưu tiên chất lượng hơn số lượng — tỷ lệ thu được ~9% anchor."
+    )
+
+    doc.add_heading("7.3. Huấn luyện TripletLoss (từ model 1 epoch)", level=2)
+    doc.add_paragraph(
+        "Script: embedding_project/scripts/train_e5_base_triplet_loss_from_jsonl.py. "
+        "Notebook Colab: embedding_project/notebooks/train_e5_triplet_hardneg_colab.ipynb."
+    )
+    add_table(
+        doc,
+        ["Tham số", "Giá trị"],
+        [
+            ["Base model", "e5_base_finetuned_final (1 epoch, không train lại từ pretrained)"],
+            ["Loss", "TripletLoss, triplet_margin=0.2"],
+            ["Triplets", "180 (train_triplets_category_hardneg_v2.jsonl)"],
+            ["Epochs / batch / lr", "1 / 16 / 1e-5"],
+            ["Output", "e5_base_triplet_hardneg_20260608_0827/"],
+        ],
+    )
+    doc.add_paragraph(
+        "Lý do train từ 1 epoch: đã học domain tiếng Việt nhưng ít overfit hơn 2 epoch; "
+        "TripletLoss bổ sung tín hiệu đẩy hard negative xuống mà không phá representation cơ bản."
+    )
+    doc.add_paragraph(
+        "Smoke test sau train (1 triplet): query 'thảm sàn an toàn' — "
+        "cos(query, positive)=0.73, cos(query, negative)=0.42 → positive gần hơn negative."
+    )
+
+    doc.add_heading("7.4. Index Qdrant collection mới", level=2)
+    for item in [
+        "Collection: products_vi_e5_triplet (2.000 vector, dim 768).",
+        "Model encode: e5_base_triplet_hardneg_20260608_0827, prefix query:/passage:.",
+        "Lệnh: python vector_db/03_index_to_qdrant.py --recreate "
+        "--collection products_vi_e5_triplet --model-path ... --e5-prefix",
+        "Cùng server Qdrant với products_vi_e5_2ep; phục vụ A/B search thực tế.",
+    ]:
+        doc.add_paragraph(item, style="List Bullet")
+
+    doc.add_heading("7.5. Đánh giá sơ bộ model Triplet (query dễ nhầm category)", level=2)
+    doc.add_paragraph(
+        "Test top-5 trên corpus 2.000 SP (không qua Qdrant), 10 query hay lỗi. "
+        "File: embedding_project/outputs/evaluation/triplet_confusing_queries_top5.csv"
+    )
+    add_table(
+        doc,
+        ["Query", "Top-1 Triplet", "Đánh giá"],
+        [
+            ["tai nghe không dây trắng", "Disney J300 tai nghe không dây", "Đúng loại"],
+            ["giày sneaker thời trang nhẹ", "New Balance 574 sneaker nam", "Đúng category"],
+            ["dầu dưỡng tóc giảm rụng", "Dầu dưỡng tóc Adivasi", "Đúng loại"],
+            ["ốp lưng điện thoại chống sốc", "Ốp Samsung Galaxy", "Đúng loại"],
+            ["giày chạy bộ nam nhẹ", "Sperry sneaker thời trang", "Sai intent (không phải chạy bộ)"],
+            ["giày nam", "Wolverine giày ủng công nghiệp", "Pollution còn (giày công nghiệp)"],
+            ["tai nghe bluetooth chống ồn", "Tai nghe tài xế xe tải", "Pollution còn"],
+            ["máy sấy tóc", "Đèn sấy móng UV", "Sai hoàn toàn"],
+            ["son môi màu hồng đất", "Sơn móng tay", "Nhầm son môi ↔ nail"],
+        ],
+    )
+    doc.add_paragraph("Nhận xét giai đoạn 2:")
+    for item in [
+        "Triplet cải thiện một số case rõ (tai nghe không dây, ốp lưng, dầu tóc) so với hành vi 2ep trên query tương tự.",
+        "Các lỗi pollution cứng (giày công nghiệp, máy sấy móng, tai nghe xe tải) vẫn còn — "
+        "180 triplets chưa phủ đủ ngành hàng và chưa thay thế normalize corpus.",
+        "Top-2/3 đôi khi đúng hơn top-1 (vd. earbud chống ồn ở rank 2–3 cho 'tai nghe bluetooth chống ồn').",
+        "Chưa có metric đầy đủ trên test_cleaned cho model triplet — cần eval formal + 78 query manual.",
+    ]:
+        doc.add_paragraph(item, style="List Bullet")
+
+    doc.add_heading("7.6. Hướng tiếp theo sau giai đoạn 2", level=2)
+    for item in [
+        "Mở rộng triplets: nới score band hoặc mine thêm anchor; có thể dùng NVIDIA LLM filter false negative.",
+        "Eval A/B: 1ep vs 2ep vs triplet trên manual_eval_queries.csv (78 query).",
+        "Normalize searchable_text khi index (pet/industrial keyword) — không chỉ dựa train.",
+        "Hybrid retrieval + filter category tại Qdrant cho query mơ hồ.",
+    ]:
+        doc.add_paragraph(item, style="List Bullet")
+
+    doc.add_heading("8. Kết luận và khuyến nghị", level=1)
     for item in [
         "Fine-tune 2 epoch cải thiện rõ rệt metric retrieval trên test_cleaned "
         f"(NDCG +{pct_delta(pre['NDCG@10'], FT2['NDCG@10'])}, "
@@ -373,19 +497,28 @@ def main() -> None:
         "category pollution ~79%, precision thấp, nhiều query thực tế fail.",
         "Model 2ep đã index Qdrant (products_vi_e5_2ep) phục vụ thử nghiệm/demo; "
         "chưa nên thay thế hoàn toàn pretrained cho traffic thật cho đến khi pass bộ eval thủ công.",
-        "Ưu tiên tiếp theo: (1) audit/làm sạch train, (2) hard negative theo category, "
-        "(3) normalize corpus khi index, (4) bộ eval ~20 query + category pollution theo ngành.",
+        "Giai đoạn 2 đã triển khai: làm sạch train v2, mine hard negative v2 (180 triplets), "
+        "TripletLoss từ 1ep, index Qdrant products_vi_e5_triplet — xem Mục 7.",
+        "Ưu tiên tiếp theo: (1) eval formal triplet vs 1ep/2ep, (2) mở rộng triplets + LLM filter, "
+        "(3) normalize corpus khi index, (4) hybrid/category filter tại retrieval.",
         "Learning curve 6 epoch xác nhận epoch 2 là checkpoint tốt nhất; không cần train thêm epoch "
         "trên dữ liệu hiện tại.",
     ]:
         doc.add_paragraph(item, style="List Bullet")
 
-    doc.add_heading("8. Tài liệu tham chiếu", level=1)
+    doc.add_heading("9. Tài liệu tham chiếu", level=1)
     for item in [
         f"Metric pretrained + 1ep: {METRICS_PRE_FT.relative_to(REPO)}",
         f"Metric 2ep: {METRICS_2EP.relative_to(REPO)}",
-        "Notebook train: embedding_project/notebooks/train_embedding_model_e5_base_2epochs.ipynb",
-        "Index Qdrant: vector_db/03_index_to_qdrant.py --preset-e5-2ep",
+        "Notebook train 2ep: embedding_project/notebooks/train_embedding_model_e5_base_2epochs.ipynb",
+        "Notebook train triplet: embedding_project/notebooks/train_e5_triplet_hardneg_colab.ipynb",
+        "Mine hard neg v2: embedding_project/scripts/mine_category_hard_negatives_from_qdrant.py",
+        "Train triplet: embedding_project/scripts/train_e5_base_triplet_loss_from_jsonl.py",
+        "Triplets v2: embedding_project/data/train_triplets_category_hardneg_v2.jsonl",
+        "Model triplet: embedding_project/models/e5_base_triplet_hardneg_20260608_0827/",
+        "Index Qdrant 2ep: vector_db/03_index_to_qdrant.py --preset-e5-2ep",
+        "Index Qdrant triplet: collection products_vi_e5_triplet",
+        "Eval query khó: embedding_project/outputs/evaluation/triplet_confusing_queries_top5.csv",
     ]:
         doc.add_paragraph(item, style="List Bullet")
 

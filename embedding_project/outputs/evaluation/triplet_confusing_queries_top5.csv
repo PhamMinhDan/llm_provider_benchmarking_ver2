@@ -1,0 +1,51 @@
+﻿query,rank,product_id,score,title,category_leaf
+giày chạy bộ nam nhẹ,1,B093LSW6GT,0.611,Sperry Nam Halyard CVO Sneaker,Giày thể thao thời trang
+giày chạy bộ nam nhẹ,2,B00U4ADYCM,0.588,Wolverine Nam Overman Nano Toe 10 Inch Chống thấm Contour Welt Giày ủng côn,Giày
+giày chạy bộ nam nhẹ,3,B07RGW5GRY,0.583,New Balance Nữ 997H V1 Giày thể thao,Giày thể thao thời trang
+giày chạy bộ nam nhẹ,4,33593076,0.576,Nike Women's Flex Experience Run 11 Next Nature Giày chạy bộ nữ From Finish,Giày chạy bộ nữ
+giày chạy bộ nam nhẹ,5,B07BL2HT5N,0.575,New Balance 412 V1 Alloy Toe Giày Công Nghiệp Nam,Giày
+tai nghe bluetooth chống ồn,1,B0BK8QY1JB,0.63,"Tai nghe Bluetooth cho tài xế xe tải, không dây với AI giảm tiếng ồn môi tr",Tai nghe On-Ear
+tai nghe bluetooth chống ồn,2,B0C6JMP9LH,0.564,"Tai nghe không dây, tai nghe Bluetooth 5.3 tích hợp chống ồn, tai nghe Blue",Tai nghe dạng Earbud
+tai nghe bluetooth chống ồn,3,B0C1GZ3Z4R,0.562,CXK Tai nghe Bluetooth không dây Earbuds thời lượng 52h Bluetooth 5.3 Neckb,Tai nghe Earbud
+tai nghe bluetooth chống ồn,4,B0CHYFK238,0.561,"Tai nghe không dây, 2023 Thể thao Bluetooth 5.3 với HiFi Stereo, 75H Tai ng",Tai nghe nhét tai
+tai nghe bluetooth chống ồn,5,B0D4QFJHC3,0.546,2 Gói Tai nghe có dây Lightning cho iPhone (Microphone tích hợp & Điều khiể,Tai nghe Earbud
+giày nam,1,B00U4ADYCM,0.623,Wolverine Nam Overman Nano Toe 10 Inch Chống thấm Contour Welt Giày ủng côn,Giày
+giày nam,2,B09TWW1N6J,0.579,SeaVees Nam Huntington Middie Sneaker,Giày sneaker thời trang
+giày nam,3,B097BK5V34,0.573,Timberland Unisex-Adult Pro Ballast Giày bảo hộ mũi thép điện,Giày
+giày nam,4,B08ZXWMVCP,0.573,PUMA Unisex-Adult X-ray 2 Square giày sneaker,Giày sneaker thời trang
+giày nam,5,B07BF1WFCS,0.571,New Balance 574 V1 All Coast cho Nam,Giày sneaker thời trang
+máy sấy tóc,1,41041296,0.473,"1pc Đèn UV LED Gel Nail Purple Light Máy Phototherapy Chuyên Nghiệp, Đèn mó",Đèn sấy & máy khô móng
+máy sấy tóc,2,B0CQQ9M341,0.437,M Professional Hybrid 86W Đèn sấy móng không dây sạc lại được UV LED cho mó,Đèn sấy
+máy sấy tóc,3,B07PX6QSH2,0.433,"Braun SE5-895 Máy tẩy lông, Thiết bị loại bỏ lông cho phụ nữ, Bao gồm dao c",Máy tẩy lông
+máy sấy tóc,4,40813685,0.403,"SHEIN Máy sấy gel móng tay 36 LED UV Portable với 4 hẹn giờ, màn hình LCD,",Thiết bị nghệ thuật móng điện tử
+máy sấy tóc,5,41135052,0.399,"SHEIN 1pc Đèn UV LED Gel Nail Tím, Máy Phototherapy, Đèn manicure chuyên ng",Đèn sấy & khô móng
+tai nghe không dây trắng,1,33725744,0.823,"Disney J300 Tai nghe không dây kiểu kẹp tai 5.3 mở tai, giảm tiếng ồn thụ đ",Tai nghe không dây
+tai nghe không dây trắng,2,39873254,0.704,"Tai nghe trong tai có dây tương thích iPhone/iPad Lightning, có điều khiển",Tai nghe có dây
+tai nghe không dây trắng,3,B0CHYFK238,0.687,"Tai nghe không dây, 2023 Thể thao Bluetooth 5.3 với HiFi Stereo, 75H Tai ng",Tai nghe nhét tai
+tai nghe không dây trắng,4,41340711,0.578,"SHEIN TWS Tai Nghe Không Dây - Tự Do Thực Sự Không Dây, Thiết Kế Công Thái",Tai Nghe Ghi Âm & Tai Nghe In-Ear
+tai nghe không dây trắng,5,B0C6JMP9LH,0.566,"Tai nghe không dây, tai nghe Bluetooth 5.3 tích hợp chống ồn, tai nghe Blue",Tai nghe dạng Earbud
+giày sneaker thời trang nhẹ,1,B07BF1WFCS,0.841,New Balance 574 V1 All Coast cho Nam,Giày sneaker thời trang
+giày sneaker thời trang nhẹ,2,B08ZXWMVCP,0.809,PUMA Unisex-Adult X-ray 2 Square giày sneaker,Giày sneaker thời trang
+giày sneaker thời trang nhẹ,3,B08PK9XYZJ,0.808,K-Swiss Nam ST329 CMF Giày sneaker,Giày sneaker thời trang
+giày sneaker thời trang nhẹ,4,B09TWW1N6J,0.804,SeaVees Nam Huntington Middie Sneaker,Giày sneaker thời trang
+giày sneaker thời trang nhẹ,5,B08TKN9CWF,0.793,Clarks Nữ Ezera Lace Sneaker,Giày sneaker thời trang
+dầu dưỡng tóc giảm rụng,1,B0CNZ6ZV14,0.729,SAURA LIFE SCIENCE Adivasi Ayurvedic Neelgiri Dầu Dưỡng Tóc Tăng Trưởng -25,Dầu dưỡng tóc
+dầu dưỡng tóc giảm rụng,2,B078Q55M95,0.569,"Keya Seth Aromatherapy, Hair Milk Keratin Care, Kem dưỡng tóc cho tăng trưở",Dầu tóc
+dầu dưỡng tóc giảm rụng,3,B08MM9WKGV,0.567,"L'Oréal Paris Dầu gội & Dầu xả, Dành cho tóc hư tổn và yếu, Với Pro-Keratin",Dầu gội
+dầu dưỡng tóc giảm rụng,4,27865900,0.516,Joico K-Pak Shampoo Dưỡng Tóc Hư Hỏng Cho Cả Nam và Nữ - 33.8 Oz,Dầu gội & Dầu xả
+dầu dưỡng tóc giảm rụng,5,B0169ZPWUW,0.468,The Honest Company Conditioning Hair Detangler | Dầu xả để lại + Xịt tăng c,Dầu xả
+son môi màu hồng đất,1,B09CQB6FZF,0.432,"FYORR 15ML Sơn móng tay khô nhanh, bền lâu, hoàn thiện mịn (Red Apple)",Sơn móng tay
+son môi màu hồng đất,2,B002LA22P8,0.423,"Mineral Fusion Lip Pencil, Splendid (Bao bì có thể thay đổi)",Chì viền môi
+son môi màu hồng đất,3,B003TU057Q,0.415,"DANIEL SMITH Original Oil Color Paint, 37ml Ống, Indian Red, 284300034",Sơn màu
+son môi màu hồng đất,4,B099RVK69C,0.403,"ETUDE Dear Darling Water Gel Luminous Lip & Cheek Tint | Kéo dài, Chống nướ",Son bóng
+son môi màu hồng đất,5,B001PT6X8S,0.384,"DANIEL SMITH Màu Nước Extra Fine, 15ml Tuýp, Iridescent Antique Copper, 284",Sơn màu
+kem chống nắng cho da dầu mụn,1,B00WSPJUPG,0.475,"VAADI HERBALS Kem Massage Chống Sạm Da Lemongrass, 50g",Kem mặt
+kem chống nắng cho da dầu mụn,2,33845966,0.464,Clarins Super Restorative Night Cream Dưỡng ẩm ban đêm cho mọi loại da 1.6,Kem dưỡng ẩm
+kem chống nắng cho da dầu mụn,3,B009B9H8ME,0.44,Covercraft UVS100 Custom Sunscreen | UV11244BL | Tương thích với các mẫu BM,Màn che nắng kính chắn gió
+kem chống nắng cho da dầu mụn,4,B08XMPKJ1L,0.419,"Bio-Oil Dầu Dưỡng Da (Natural) Serum cho Sẹo và Đường Nếp, Dưỡng ẩm Da Mặt",Dầu Dưỡng Mặt
+kem chống nắng cho da dầu mụn,5,B0B3X64DV2,0.415,"STAMIO Orange Peel Powder 100 g cho Mặt Nạ, Chăm sóc Da, DIY | Pure Citrus",Mặt nạ
+ốp lưng điện thoại chống sốc,1,39627178,0.612,1 chiếc ốp lưng PC cứng siêu mỏng trong suốt tương thích với Samsung Galaxy,Ốp lưng cơ bản
+ốp lưng điện thoại chống sốc,2,B07Y7VHGWK,0.605,"BENTOBEN ốp lưng iPhone 6S Plus, iPhone 6 Plus, Bảo vệ chịu va đập cứng cáp",Ốp lưng cơ bản
+ốp lưng điện thoại chống sốc,3,41335316,0.587,"IDsarah Ốp Lưng Galaxy S22 Với Bảo Vệ, Hút Chấn Nặng, Độ Bền Cao, Kiểm Tra",Ốp Lưng Đứng
+ốp lưng điện thoại chống sốc,4,41415596,0.576,"IDsarah Case cho iPhone 12 Pro Max có giá đỡ tích hợp, bảo vệ chịu lực, chố",Ốp lưng có giá đỡ
+ốp lưng điện thoại chống sốc,5,B08R97JZQ9,0.566,"Poetic Spartan ốp lưng Samsung Galaxy S21+ Plus 5G 6.7 inch, tương thích cả",Ốp lưng cơ bản

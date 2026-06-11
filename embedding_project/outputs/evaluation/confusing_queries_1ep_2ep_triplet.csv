@@ -1,0 +1,136 @@
+﻿model,query,rank,product_id,title,category_leaf,likely_relevant,score
+1ep,giày chạy bộ nam nhẹ,1,B093LSW6GT,Sperry Nam Halyard CVO Sneaker,Giày thể thao thời trang,True,0.63
+1ep,giày chạy bộ nam nhẹ,2,B07S8NRRWR,adidas Ultraboost Personal Best giày chạy bộ nam,Chạy bộ đường phố,True,0.6223
+1ep,giày chạy bộ nam nhẹ,3,B00U4ADYCM,Wolverine Nam Overman Nano Toe 10 Inch Chống thấm Contour Welt Giày ủn,Giày,False,0.5808
+1ep,tai nghe bluetooth chống ồn,1,B0BK8QY1JB,"Tai nghe Bluetooth cho tài xế xe tải, không dây với AI giảm tiếng ồn m",Tai nghe On-Ear,True,0.6694
+1ep,tai nghe bluetooth chống ồn,2,B0C6JMP9LH,"Tai nghe không dây, tai nghe Bluetooth 5.3 tích hợp chống ồn, tai nghe",Tai nghe dạng Earbud,True,0.6324
+1ep,tai nghe bluetooth chống ồn,3,B0CHYFK238,"Tai nghe không dây, 2023 Thể thao Bluetooth 5.3 với HiFi Stereo, 75H T",Tai nghe nhét tai,True,0.6048
+1ep,giày nam,1,B00U4ADYCM,Wolverine Nam Overman Nano Toe 10 Inch Chống thấm Contour Welt Giày ủn,Giày,True,0.6205
+1ep,giày nam,2,B09TWW1N6J,SeaVees Nam Huntington Middie Sneaker,Giày sneaker thời trang,True,0.6004
+1ep,giày nam,3,B07BF1WFCS,New Balance 574 V1 All Coast cho Nam,Giày sneaker thời trang,True,0.5874
+1ep,máy sấy tóc,1,40813685,"SHEIN Máy sấy gel móng tay 36 LED UV Portable với 4 hẹn giờ, màn hình ",Thiết bị nghệ thuật móng điện tử,True,0.4735
+1ep,máy sấy tóc,2,B0CQQ9M341,M Professional Hybrid 86W Đèn sấy móng không dây sạc lại được UV LED c,Đèn sấy,False,0.4255
+1ep,máy sấy tóc,3,B07PX6QSH2,"Braun SE5-895 Máy tẩy lông, Thiết bị loại bỏ lông cho phụ nữ, Bao gồm ",Máy tẩy lông,False,0.4199
+1ep,tai nghe không dây trắng,1,33725744,"Disney J300 Tai nghe không dây kiểu kẹp tai 5.3 mở tai, giảm tiếng ồn ",Tai nghe không dây,True,0.771
+1ep,tai nghe không dây trắng,2,B0CHYFK238,"Tai nghe không dây, 2023 Thể thao Bluetooth 5.3 với HiFi Stereo, 75H T",Tai nghe nhét tai,True,0.729
+1ep,tai nghe không dây trắng,3,39873254,"Tai nghe trong tai có dây tương thích iPhone/iPad Lightning, có điều k",Tai nghe có dây,True,0.67
+1ep,giày sneaker thời trang nhẹ,1,B07BF1WFCS,New Balance 574 V1 All Coast cho Nam,Giày sneaker thời trang,True,0.786
+1ep,giày sneaker thời trang nhẹ,2,B09TWW1N6J,SeaVees Nam Huntington Middie Sneaker,Giày sneaker thời trang,True,0.7646
+1ep,giày sneaker thời trang nhẹ,3,B08PK9XYZJ,K-Swiss Nam ST329 CMF Giày sneaker,Giày sneaker thời trang,True,0.7583
+1ep,giày thể thao giảm chấn tốt,1,B093LSW6GT,Sperry Nam Halyard CVO Sneaker,Giày thể thao thời trang,True,0.6217
+1ep,giày thể thao giảm chấn tốt,2,B07RGW5GRY,New Balance Nữ 997H V1 Giày thể thao,Giày thể thao thời trang,True,0.6116
+1ep,giày thể thao giảm chấn tốt,3,B07W5TLD7C,WETIKE Mesh Slip On Giày chạy bộ nhẹ,Giày thể thao,True,0.6105
+1ep,dầu dưỡng tóc giảm rụng,1,B0CNZ6ZV14,SAURA LIFE SCIENCE Adivasi Ayurvedic Neelgiri Dầu Dưỡng Tóc Tăng Trưởn,Dầu dưỡng tóc,True,0.6801
+1ep,dầu dưỡng tóc giảm rụng,2,B08MM9WKGV,"L'Oréal Paris Dầu gội & Dầu xả, Dành cho tóc hư tổn và yếu, Với Pro-Ke",Dầu gội,True,0.5602
+1ep,dầu dưỡng tóc giảm rụng,3,B078Q55M95,"Keya Seth Aromatherapy, Hair Milk Keratin Care, Kem dưỡng tóc cho tăng",Dầu tóc,False,0.5329
+1ep,son môi màu hồng đất,1,B09CQB6FZF,"FYORR 15ML Sơn móng tay khô nhanh, bền lâu, hoàn thiện mịn (Red Apple)",Sơn móng tay,False,0.4413
+1ep,son môi màu hồng đất,2,B002LA22P8,"Mineral Fusion Lip Pencil, Splendid (Bao bì có thể thay đổi)",Chì viền môi,False,0.412
+1ep,son môi màu hồng đất,3,B099RVK69C,"ETUDE Dear Darling Water Gel Luminous Lip & Cheek Tint | Kéo dài, Chốn",Son bóng,False,0.4059
+1ep,kem chống nắng cho da dầu mụn,1,B00WSPJUPG,"VAADI HERBALS Kem Massage Chống Sạm Da Lemongrass, 50g",Kem mặt,False,0.5132
+1ep,kem chống nắng cho da dầu mụn,2,33845966,Clarins Super Restorative Night Cream Dưỡng ẩm ban đêm cho mọi loại da,Kem dưỡng ẩm,False,0.4861
+1ep,kem chống nắng cho da dầu mụn,3,B009B9H8ME,Covercraft UVS100 Custom Sunscreen | UV11244BL | Tương thích với các m,Màn che nắng kính chắn gió,True,0.4463
+1ep,tai nghe có mic họp online,1,B0BK8QY1JB,"Tai nghe Bluetooth cho tài xế xe tải, không dây với AI giảm tiếng ồn m",Tai nghe On-Ear,True,0.5924
+1ep,tai nghe có mic họp online,2,B0D4QFJHC3,2 Gói Tai nghe có dây Lightning cho iPhone (Microphone tích hợp & Điều,Tai nghe Earbud,True,0.5039
+1ep,tai nghe có mic họp online,3,B0C6JMP9LH,"Tai nghe không dây, tai nghe Bluetooth 5.3 tích hợp chống ồn, tai nghe",Tai nghe dạng Earbud,True,0.4969
+1ep,máy sấy tóc công suất lớn,1,40813685,"SHEIN Máy sấy gel móng tay 36 LED UV Portable với 4 hẹn giờ, màn hình ",Thiết bị nghệ thuật móng điện tử,True,0.4401
+1ep,máy sấy tóc công suất lớn,2,B07PX6QSH2,"Braun SE5-895 Máy tẩy lông, Thiết bị loại bỏ lông cho phụ nữ, Bao gồm ",Máy tẩy lông,False,0.4088
+1ep,máy sấy tóc công suất lớn,3,B0CQQ9M341,M Professional Hybrid 86W Đèn sấy móng không dây sạc lại được UV LED c,Đèn sấy,False,0.4086
+1ep,giày đi bộ cho người lớn tuổi,1,B095JJ4GXM,Skechers Women's Go Joy Giày Đi Bộ,Đi bộ,True,0.6382
+1ep,giày đi bộ cho người lớn tuổi,2,B07WQ5DG49,"Skechers Women's giày thể thao cổ thấp, size 8 US",Đi bộ,True,0.6357
+1ep,giày đi bộ cho người lớn tuổi,3,B08FF49H36,Skechers Giày Đi Bộ Go Joy Nữ,Đi bộ,True,0.6297
+1ep,ốp lưng điện thoại chống sốc,1,B07Y7VHGWK,"BENTOBEN ốp lưng iPhone 6S Plus, iPhone 6 Plus, Bảo vệ chịu va đập cứn",Ốp lưng cơ bản,True,0.6335
+1ep,ốp lưng điện thoại chống sốc,2,41335316,"IDsarah Ốp Lưng Galaxy S22 Với Bảo Vệ, Hút Chấn Nặng, Độ Bền Cao, Kiểm",Ốp Lưng Đứng,True,0.5947
+1ep,ốp lưng điện thoại chống sốc,3,39627178,1 chiếc ốp lưng PC cứng siêu mỏng trong suốt tương thích với Samsung G,Ốp lưng cơ bản,True,0.5933
+1ep,micro thu âm cho livestream,1,B0BK8QY1JB,"Tai nghe Bluetooth cho tài xế xe tải, không dây với AI giảm tiếng ồn m",Tai nghe On-Ear,False,0.3152
+1ep,micro thu âm cho livestream,2,B07WWN97S7,Razer Kraken Tournament Edition Tai nghe chơi game âm thanh vòm THX 7.,Tai nghe Over-Ear,True,0.2764
+1ep,micro thu âm cho livestream,3,37211302,"1 chiếc dù mini chống tia UV cho nắng và mưa, dù bỏ túi di động có lớp",Dù và mũ che mưa,False,0.2645
+2ep,giày chạy bộ nam nhẹ,1,B093LSW6GT,Sperry Nam Halyard CVO Sneaker,Giày thể thao thời trang,True,0.6712
+2ep,giày chạy bộ nam nhẹ,2,B09TWW1N6J,SeaVees Nam Huntington Middie Sneaker,Giày sneaker thời trang,False,0.6239
+2ep,giày chạy bộ nam nhẹ,3,B07BF1WFCS,New Balance 574 V1 All Coast cho Nam,Giày sneaker thời trang,False,0.6143
+2ep,tai nghe bluetooth chống ồn,1,B0BK8QY1JB,"Tai nghe Bluetooth cho tài xế xe tải, không dây với AI giảm tiếng ồn m",Tai nghe On-Ear,True,0.6484
+2ep,tai nghe bluetooth chống ồn,2,B0C6JMP9LH,"Tai nghe không dây, tai nghe Bluetooth 5.3 tích hợp chống ồn, tai nghe",Tai nghe dạng Earbud,True,0.6285
+2ep,tai nghe bluetooth chống ồn,3,B0C1GZ3Z4R,CXK Tai nghe Bluetooth không dây Earbuds thời lượng 52h Bluetooth 5.3 ,Tai nghe Earbud,True,0.5975
+2ep,giày nam,1,B00U4ADYCM,Wolverine Nam Overman Nano Toe 10 Inch Chống thấm Contour Welt Giày ủn,Giày,True,0.6482
+2ep,giày nam,2,B09TWW1N6J,SeaVees Nam Huntington Middie Sneaker,Giày sneaker thời trang,True,0.6076
+2ep,giày nam,3,B07BF1WFCS,New Balance 574 V1 All Coast cho Nam,Giày sneaker thời trang,True,0.5849
+2ep,máy sấy tóc,1,40813685,"SHEIN Máy sấy gel móng tay 36 LED UV Portable với 4 hẹn giờ, màn hình ",Thiết bị nghệ thuật móng điện tử,True,0.4875
+2ep,máy sấy tóc,2,B0CQQ9M341,M Professional Hybrid 86W Đèn sấy móng không dây sạc lại được UV LED c,Đèn sấy,False,0.4271
+2ep,máy sấy tóc,3,41041296,"1pc Đèn UV LED Gel Nail Purple Light Máy Phototherapy Chuyên Nghiệp, Đ",Đèn sấy & máy khô móng,True,0.4221
+2ep,tai nghe không dây trắng,1,33725744,"Disney J300 Tai nghe không dây kiểu kẹp tai 5.3 mở tai, giảm tiếng ồn ",Tai nghe không dây,True,0.7588
+2ep,tai nghe không dây trắng,2,B0CHYFK238,"Tai nghe không dây, 2023 Thể thao Bluetooth 5.3 với HiFi Stereo, 75H T",Tai nghe nhét tai,True,0.7328
+2ep,tai nghe không dây trắng,3,39873254,"Tai nghe trong tai có dây tương thích iPhone/iPad Lightning, có điều k",Tai nghe có dây,True,0.6417
+2ep,giày sneaker thời trang nhẹ,1,B07BF1WFCS,New Balance 574 V1 All Coast cho Nam,Giày sneaker thời trang,True,0.792
+2ep,giày sneaker thời trang nhẹ,2,B09TWW1N6J,SeaVees Nam Huntington Middie Sneaker,Giày sneaker thời trang,True,0.7866
+2ep,giày sneaker thời trang nhẹ,3,B08PK9XYZJ,K-Swiss Nam ST329 CMF Giày sneaker,Giày sneaker thời trang,True,0.7709
+2ep,giày thể thao giảm chấn tốt,1,B093LSW6GT,Sperry Nam Halyard CVO Sneaker,Giày thể thao thời trang,True,0.6759
+2ep,giày thể thao giảm chấn tốt,2,B07W5TLD7C,WETIKE Mesh Slip On Giày chạy bộ nhẹ,Giày thể thao,True,0.664
+2ep,giày thể thao giảm chấn tốt,3,B07RGW5GRY,New Balance Nữ 997H V1 Giày thể thao,Giày thể thao thời trang,True,0.6628
+2ep,dầu dưỡng tóc giảm rụng,1,B0CNZ6ZV14,SAURA LIFE SCIENCE Adivasi Ayurvedic Neelgiri Dầu Dưỡng Tóc Tăng Trưởn,Dầu dưỡng tóc,True,0.6715
+2ep,dầu dưỡng tóc giảm rụng,2,B08MM9WKGV,"L'Oréal Paris Dầu gội & Dầu xả, Dành cho tóc hư tổn và yếu, Với Pro-Ke",Dầu gội,True,0.5627
+2ep,dầu dưỡng tóc giảm rụng,3,B078Q55M95,"Keya Seth Aromatherapy, Hair Milk Keratin Care, Kem dưỡng tóc cho tăng",Dầu tóc,False,0.5546
+2ep,son môi màu hồng đất,1,B09CQB6FZF,"FYORR 15ML Sơn móng tay khô nhanh, bền lâu, hoàn thiện mịn (Red Apple)",Sơn móng tay,False,0.4338
+2ep,son môi màu hồng đất,2,B003TU057Q,"DANIEL SMITH Original Oil Color Paint, 37ml Ống, Indian Red, 284300034",Sơn màu,False,0.4096
+2ep,son môi màu hồng đất,3,B099RVK69C,"ETUDE Dear Darling Water Gel Luminous Lip & Cheek Tint | Kéo dài, Chốn",Son bóng,False,0.401
+2ep,kem chống nắng cho da dầu mụn,1,B00WSPJUPG,"VAADI HERBALS Kem Massage Chống Sạm Da Lemongrass, 50g",Kem mặt,False,0.5087
+2ep,kem chống nắng cho da dầu mụn,2,33845966,Clarins Super Restorative Night Cream Dưỡng ẩm ban đêm cho mọi loại da,Kem dưỡng ẩm,False,0.4796
+2ep,kem chống nắng cho da dầu mụn,3,39999753,"SHEIN Mặt nạ chống nắng, phiên bản nữ, thoáng khí, mỏng, mặt nạ dưỡng ",Mặt nạ & Khăn đạp xe,False,0.4258
+2ep,tai nghe có mic họp online,1,B0BK8QY1JB,"Tai nghe Bluetooth cho tài xế xe tải, không dây với AI giảm tiếng ồn m",Tai nghe On-Ear,True,0.5846
+2ep,tai nghe có mic họp online,2,B0D4QFJHC3,2 Gói Tai nghe có dây Lightning cho iPhone (Microphone tích hợp & Điều,Tai nghe Earbud,True,0.5038
+2ep,tai nghe có mic họp online,3,B07WWN97S7,Razer Kraken Tournament Edition Tai nghe chơi game âm thanh vòm THX 7.,Tai nghe Over-Ear,True,0.4851
+2ep,máy sấy tóc công suất lớn,1,40813685,"SHEIN Máy sấy gel móng tay 36 LED UV Portable với 4 hẹn giờ, màn hình ",Thiết bị nghệ thuật móng điện tử,True,0.4487
+2ep,máy sấy tóc công suất lớn,2,B0CQQ9M341,M Professional Hybrid 86W Đèn sấy móng không dây sạc lại được UV LED c,Đèn sấy,False,0.4111
+2ep,máy sấy tóc công suất lớn,3,41041296,"1pc Đèn UV LED Gel Nail Purple Light Máy Phototherapy Chuyên Nghiệp, Đ",Đèn sấy & máy khô móng,True,0.3926
+2ep,giày đi bộ cho người lớn tuổi,1,B08FF49H36,Skechers Giày Đi Bộ Go Joy Nữ,Đi bộ,True,0.6282
+2ep,giày đi bộ cho người lớn tuổi,2,B08Z7462W4,"STQ Giày đi bộ cho phụ nữ thoải mái, thoáng khí | Giày sneaker slip on",Đi bộ,True,0.6264
+2ep,giày đi bộ cho người lớn tuổi,3,B095JJ4GXM,Skechers Women's Go Joy Giày Đi Bộ,Đi bộ,True,0.6234
+2ep,ốp lưng điện thoại chống sốc,1,41335316,"IDsarah Ốp Lưng Galaxy S22 Với Bảo Vệ, Hút Chấn Nặng, Độ Bền Cao, Kiểm",Ốp Lưng Đứng,True,0.593
+2ep,ốp lưng điện thoại chống sốc,2,B07Y7VHGWK,"BENTOBEN ốp lưng iPhone 6S Plus, iPhone 6 Plus, Bảo vệ chịu va đập cứn",Ốp lưng cơ bản,True,0.5888
+2ep,ốp lưng điện thoại chống sốc,3,39627178,1 chiếc ốp lưng PC cứng siêu mỏng trong suốt tương thích với Samsung G,Ốp lưng cơ bản,True,0.5504
+2ep,micro thu âm cho livestream,1,B0BK8QY1JB,"Tai nghe Bluetooth cho tài xế xe tải, không dây với AI giảm tiếng ồn m",Tai nghe On-Ear,False,0.3159
+2ep,micro thu âm cho livestream,2,30741507,"1 chiếc ô mini bảo vệ UV di động cho ngày nắng và mưa, ô tay cầm 6 xươ",Ô và mũ che mưa,False,0.3112
+2ep,micro thu âm cho livestream,3,37211302,"1 chiếc dù mini chống tia UV cho nắng và mưa, dù bỏ túi di động có lớp",Dù và mũ che mưa,False,0.3063
+triplet,giày chạy bộ nam nhẹ,1,B093LSW6GT,Sperry Nam Halyard CVO Sneaker,Giày thể thao thời trang,True,0.6112
+triplet,giày chạy bộ nam nhẹ,2,B00U4ADYCM,Wolverine Nam Overman Nano Toe 10 Inch Chống thấm Contour Welt Giày ủn,Giày,False,0.5885
+triplet,giày chạy bộ nam nhẹ,3,B07RGW5GRY,New Balance Nữ 997H V1 Giày thể thao,Giày thể thao thời trang,True,0.5825
+triplet,tai nghe bluetooth chống ồn,1,B0BK8QY1JB,"Tai nghe Bluetooth cho tài xế xe tải, không dây với AI giảm tiếng ồn m",Tai nghe On-Ear,True,0.6303
+triplet,tai nghe bluetooth chống ồn,2,B0C6JMP9LH,"Tai nghe không dây, tai nghe Bluetooth 5.3 tích hợp chống ồn, tai nghe",Tai nghe dạng Earbud,True,0.5641
+triplet,tai nghe bluetooth chống ồn,3,B0C1GZ3Z4R,CXK Tai nghe Bluetooth không dây Earbuds thời lượng 52h Bluetooth 5.3 ,Tai nghe Earbud,True,0.5616
+triplet,giày nam,1,B00U4ADYCM,Wolverine Nam Overman Nano Toe 10 Inch Chống thấm Contour Welt Giày ủn,Giày,True,0.6229
+triplet,giày nam,2,B09TWW1N6J,SeaVees Nam Huntington Middie Sneaker,Giày sneaker thời trang,True,0.5793
+triplet,giày nam,3,B097BK5V34,Timberland Unisex-Adult Pro Ballast Giày bảo hộ mũi thép điện,Giày,True,0.5732
+triplet,máy sấy tóc,1,41041296,"1pc Đèn UV LED Gel Nail Purple Light Máy Phototherapy Chuyên Nghiệp, Đ",Đèn sấy & máy khô móng,True,0.4733
+triplet,máy sấy tóc,2,B0CQQ9M341,M Professional Hybrid 86W Đèn sấy móng không dây sạc lại được UV LED c,Đèn sấy,False,0.4365
+triplet,máy sấy tóc,3,B07PX6QSH2,"Braun SE5-895 Máy tẩy lông, Thiết bị loại bỏ lông cho phụ nữ, Bao gồm ",Máy tẩy lông,False,0.4334
+triplet,tai nghe không dây trắng,1,33725744,"Disney J300 Tai nghe không dây kiểu kẹp tai 5.3 mở tai, giảm tiếng ồn ",Tai nghe không dây,True,0.823
+triplet,tai nghe không dây trắng,2,39873254,"Tai nghe trong tai có dây tương thích iPhone/iPad Lightning, có điều k",Tai nghe có dây,True,0.7037
+triplet,tai nghe không dây trắng,3,B0CHYFK238,"Tai nghe không dây, 2023 Thể thao Bluetooth 5.3 với HiFi Stereo, 75H T",Tai nghe nhét tai,True,0.6869
+triplet,giày sneaker thời trang nhẹ,1,B07BF1WFCS,New Balance 574 V1 All Coast cho Nam,Giày sneaker thời trang,True,0.8411
+triplet,giày sneaker thời trang nhẹ,2,B08ZXWMVCP,PUMA Unisex-Adult X-ray 2 Square giày sneaker,Giày sneaker thời trang,True,0.8093
+triplet,giày sneaker thời trang nhẹ,3,B08PK9XYZJ,K-Swiss Nam ST329 CMF Giày sneaker,Giày sneaker thời trang,True,0.8076
+triplet,giày thể thao giảm chấn tốt,1,B07W5TLD7C,WETIKE Mesh Slip On Giày chạy bộ nhẹ,Giày thể thao,True,0.6406
+triplet,giày thể thao giảm chấn tốt,2,B07RGW5GRY,New Balance Nữ 997H V1 Giày thể thao,Giày thể thao thời trang,True,0.637
+triplet,giày thể thao giảm chấn tốt,3,B093LSW6GT,Sperry Nam Halyard CVO Sneaker,Giày thể thao thời trang,True,0.6316
+triplet,dầu dưỡng tóc giảm rụng,1,B0CNZ6ZV14,SAURA LIFE SCIENCE Adivasi Ayurvedic Neelgiri Dầu Dưỡng Tóc Tăng Trưởn,Dầu dưỡng tóc,True,0.7287
+triplet,dầu dưỡng tóc giảm rụng,2,B078Q55M95,"Keya Seth Aromatherapy, Hair Milk Keratin Care, Kem dưỡng tóc cho tăng",Dầu tóc,False,0.5694
+triplet,dầu dưỡng tóc giảm rụng,3,B08MM9WKGV,"L'Oréal Paris Dầu gội & Dầu xả, Dành cho tóc hư tổn và yếu, Với Pro-Ke",Dầu gội,True,0.5666
+triplet,son môi màu hồng đất,1,B09CQB6FZF,"FYORR 15ML Sơn móng tay khô nhanh, bền lâu, hoàn thiện mịn (Red Apple)",Sơn móng tay,False,0.4323
+triplet,son môi màu hồng đất,2,B002LA22P8,"Mineral Fusion Lip Pencil, Splendid (Bao bì có thể thay đổi)",Chì viền môi,False,0.423
+triplet,son môi màu hồng đất,3,B003TU057Q,"DANIEL SMITH Original Oil Color Paint, 37ml Ống, Indian Red, 284300034",Sơn màu,False,0.4147
+triplet,kem chống nắng cho da dầu mụn,1,B00WSPJUPG,"VAADI HERBALS Kem Massage Chống Sạm Da Lemongrass, 50g",Kem mặt,False,0.4748
+triplet,kem chống nắng cho da dầu mụn,2,33845966,Clarins Super Restorative Night Cream Dưỡng ẩm ban đêm cho mọi loại da,Kem dưỡng ẩm,False,0.4635
+triplet,kem chống nắng cho da dầu mụn,3,B009B9H8ME,Covercraft UVS100 Custom Sunscreen | UV11244BL | Tương thích với các m,Màn che nắng kính chắn gió,True,0.4405
+triplet,tai nghe có mic họp online,1,B0BK8QY1JB,"Tai nghe Bluetooth cho tài xế xe tải, không dây với AI giảm tiếng ồn m",Tai nghe On-Ear,True,0.6081
+triplet,tai nghe có mic họp online,2,41340711,"SHEIN TWS Tai Nghe Không Dây - Tự Do Thực Sự Không Dây, Thiết Kế Công ",Tai Nghe Ghi Âm & Tai Nghe In-Ear,True,0.5338
+triplet,tai nghe có mic họp online,3,B0D4QFJHC3,2 Gói Tai nghe có dây Lightning cho iPhone (Microphone tích hợp & Điều,Tai nghe Earbud,True,0.5153
+triplet,máy sấy tóc công suất lớn,1,41041296,"1pc Đèn UV LED Gel Nail Purple Light Máy Phototherapy Chuyên Nghiệp, Đ",Đèn sấy & máy khô móng,True,0.4403
+triplet,máy sấy tóc công suất lớn,2,B0CQQ9M341,M Professional Hybrid 86W Đèn sấy móng không dây sạc lại được UV LED c,Đèn sấy,False,0.4251
+triplet,máy sấy tóc công suất lớn,3,B07PX6QSH2,"Braun SE5-895 Máy tẩy lông, Thiết bị loại bỏ lông cho phụ nữ, Bao gồm ",Máy tẩy lông,False,0.4166
+triplet,giày đi bộ cho người lớn tuổi,1,B095JJ4GXM,Skechers Women's Go Joy Giày Đi Bộ,Đi bộ,True,0.6496
+triplet,giày đi bộ cho người lớn tuổi,2,B08Z7462W4,"STQ Giày đi bộ cho phụ nữ thoải mái, thoáng khí | Giày sneaker slip on",Đi bộ,True,0.6357
+triplet,giày đi bộ cho người lớn tuổi,3,B09TMC2YS2,Easy Spirit Romy Sneaker Nữ,Đi bộ,True,0.6333
+triplet,ốp lưng điện thoại chống sốc,1,39627178,1 chiếc ốp lưng PC cứng siêu mỏng trong suốt tương thích với Samsung G,Ốp lưng cơ bản,True,0.6117
+triplet,ốp lưng điện thoại chống sốc,2,B07Y7VHGWK,"BENTOBEN ốp lưng iPhone 6S Plus, iPhone 6 Plus, Bảo vệ chịu va đập cứn",Ốp lưng cơ bản,True,0.6046
+triplet,ốp lưng điện thoại chống sốc,3,41335316,"IDsarah Ốp Lưng Galaxy S22 Với Bảo Vệ, Hút Chấn Nặng, Độ Bền Cao, Kiểm",Ốp Lưng Đứng,True,0.5873
+triplet,micro thu âm cho livestream,1,B0BK8QY1JB,"Tai nghe Bluetooth cho tài xế xe tải, không dây với AI giảm tiếng ồn m",Tai nghe On-Ear,False,0.3111
+triplet,micro thu âm cho livestream,2,41340711,"SHEIN TWS Tai Nghe Không Dây - Tự Do Thực Sự Không Dây, Thiết Kế Công ",Tai Nghe Ghi Âm & Tai Nghe In-Ear,False,0.3048
+triplet,micro thu âm cho livestream,3,35890684,"1 chiếc ô mini chống tia UV, ô gập bỏ túi có lớp phủ UV, 6 xương cứng ",Ô và mũ che mưa,False,0.2829
