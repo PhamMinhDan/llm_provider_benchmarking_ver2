@@ -10,9 +10,9 @@ venv/
 # Jupyter
 .ipynb_checkpoints/
 
-# Training checkpoints (chỉ giữ *_finetuned_final/)
-embedding_project/models/minilm/
-embedding_project/models/bge-m3/
+# Training checkpoints / models (không đẩy lên git để tránh nặng repo)
+embedding_project/models/
+!embedding_project/models/.gitkeep
 
 # Outputs lớn (giữ metrics json/csv nhỏ nếu cần — bỏ comment dòng dưới)
 embedding_project/outputs/embeddings/*.npy
