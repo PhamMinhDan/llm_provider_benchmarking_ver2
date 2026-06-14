@@ -361,16 +361,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--k-values", type=int, nargs="+", default=[5, 10, 20])
     parser.add_argument("--eval-k", type=int, default=10, help="k báo cáo chính P/R/F1")
     parser.add_argument(
+        "--best-metric",
+        choices=["F1", "MRR", "NDCG"],
+        default="NDCG",
+        help="Metric dùng để chọn cấu hình tốt nhất tại eval-k",
+    )
+    parser.add_argument(
         "--target-recall",
         type=float,
         default=None,
-        help="Nếu đặt, tự chọn n nhỏ nhất sao cho Recall@n >= ngưỡng này và chỉ rerank tại n đó",
+        help="Nếu đặt, tự chọn n nhỏ nhất sao cho Recall@n >= ngưỡng này và chỉ rerank tới n cần thiết",
     )
     parser.add_argument(
         "--n-search-values",
         type=int,
         nargs="+",
-        default=[10, 20, 50, 100, 200],
+        default=[10, 20, 50, 100, 200, 500],
         help="Các n dùng để dò Recall trước khi chốt n",
     )
     parser.add_argument("--encode-batch-size", type=int, default=128)
@@ -445,7 +451,39 @@ def main() -> None:
     LOGGER.info("Loading reranker: %s", args.reranker_model)
     reranker = load_reranker(args.reranker_model, device)
 
-    max_n_eff = min(max(args.n_values), max_n)
+    n_search_values = sorted(set(n for n in args.n_search_values if n <= max_n))
+    if not n_search_values:
+        n_search_values = [max_n]
+
+    recall_by_n: dict[int, float] = {}
+    for n in n_search_values:
+        recall_by_n[n] = retrieval_metrics(
+            [row[:n] for row in bi_encoder_topn], query_texts, labels, k=n
+        )[f"Recall@{n}"]
+
+    selected_n = n_search_values[-1]
+    if args.target_recall is not None:
+        for n in n_search_values:
+            if recall_by_n[n] >= args.target_recall:
+                selected_n = n
+                break
+
+    saturation_n = 100 if 100 in n_search_values else None
+    if saturation_n is not None and recall_by_n.get(100, 0.0) >= (args.target_recall or 0.0):
+        n_search_values = [n for n in n_search_values if n <= 100]
+        LOGGER.info("Recall@100 đã bão hòa; dừng search tại n<=100, không mở rộng tới 500.")
+        selected_n = min(selected_n, 100)
+
+    max_n_eff = max(n_search_values)
+    search_rows = [row[:max_n_eff] for row in bi_encoder_topn]
+    search_cache = build_rerank_score_cache(
+        query_texts,
+        search_rows,
+        id_to_text,
+        reranker,
+        args.rerank_batch_size,
+        device,
+    )
     n_pairs = max_n_eff * len(query_texts)
     LOGGER.info(
         "Reranking một lần tại n=%d (%d queries × %d = %d cặp)...",
@@ -454,15 +492,8 @@ def main() -> None:
         max_n_eff,
         n_pairs,
     )
-    score_cache = build_rerank_score_cache(
-        query_texts,
-        [row[:max_n_eff] for row in bi_encoder_topn],
-        id_to_text,
-        reranker,
-        args.rerank_batch_size,
-        device,
-    )
-    LOGGER.info("Đã cache điểm reranker — grid n×k không cần chạy lại model.")
+    score_cache = search_cache
+    LOGGER.info("Đã cache điểm reranker — các n/k nhỏ hơn dùng lại cache.")
 
     grid_query_texts = query_texts
     grid_labels = labels
@@ -477,10 +508,11 @@ def main() -> None:
         LOGGER.info("Grid n×k trên %d/%d query (mẫu)", gq, len(query_texts))
 
     grid_results = []
-    best_f1 = -1.0
+    metric_key = {"F1": "F1", "MRR": "MRR", "NDCG": "NDCG"}[args.best_metric]
+    best_score = -1.0
     best_nk: dict | None = None
 
-    for n in sorted(args.n_values):
+    for n in n_search_values:
         n_eff = min(n, max_n_eff)
         cand_ids = [row[:n_eff] for row in grid_topn]
         reranked_ids = rerank_from_cache(cand_ids, grid_cache)
@@ -490,23 +522,25 @@ def main() -> None:
             m = retrieval_metrics(reranked_ids, grid_query_texts, grid_labels, k=k)
             entry = {"n": n_eff, "k": k, **m}
             grid_results.append(entry)
-            f1_key = f"F1@{k}"
-            if m[f1_key] > best_f1:
-                best_f1 = m[f1_key]
+            score_key = f"{metric_key}@{k}"
+            if m[score_key] > best_score:
+                best_score = m[score_key]
                 best_nk = entry
             if k == eval_k:
                 LOGGER.info(
-                    "Reranker n=%d @%d: P=%.4f R=%.4f F1=%.4f",
+                    "Reranker n=%d @%d: P=%.4f R=%.4f F1=%.4f MRR=%.4f NDCG=%.4f",
                     n_eff,
                     k,
                     m[f"Precision@{k}"],
                     m[f"Recall@{k}"],
-                    m[f1_key],
+                    m[f"F1@{k}"],
+                    m[f"MRR@{k}"],
+                    m[f"NDCG@{k}"],
                 )
 
     best_at_eval_k = max(
         (g for g in grid_results if g["k"] == eval_k),
-        key=lambda g: g[f"F1@{eval_k}"],
+        key=lambda g: g[f"{metric_key}@{eval_k}"],
         default=None,
     )
     if best_at_eval_k:
@@ -517,13 +551,15 @@ def main() -> None:
         )
         reranker_metrics = retrieval_metrics(reranked_best, query_texts, labels, k=eval_k)
         LOGGER.info(
-            "Best n=%d @%d (full %d queries): P=%.4f R=%.4f F1=%.4f",
+            "Best n=%d @%d (full %d queries): P=%.4f R=%.4f F1=%.4f MRR=%.4f NDCG=%.4f",
             n_best,
             eval_k,
             len(query_texts),
             reranker_metrics[f"Precision@{eval_k}"],
             reranker_metrics[f"Recall@{eval_k}"],
             reranker_metrics[f"F1@{eval_k}"],
+            reranker_metrics[f"MRR@{eval_k}"],
+            reranker_metrics[f"NDCG@{eval_k}"],
         )
     else:
         reranker_metrics = {}
@@ -560,6 +596,8 @@ def main() -> None:
         "n_eval_queries": len(query_texts),
         "grid_max_queries": args.grid_max_queries,
         "rerank_pairs_scored_once": max_n_eff * len(query_texts),
+        "selected_n": selected_n,
+        "best_metric": args.best_metric,
         f"bi_encoder_only@{eval_k}": bi_metrics,
         f"reranker_best_n@{eval_k}": {
             "n": best_at_eval_k["n"] if best_at_eval_k else None,
@@ -567,8 +605,10 @@ def main() -> None:
         },
         "grid_search_n_k": grid_results,
         "optimal_n_k": {
-            "by_max_f1_any_k": best_nk,
-            f"by_max_f1_at_k{eval_k}": best_at_eval_k,
+            f"by_max_{args.best_metric.lower()}_any_k": best_nk,
+            f"by_max_{args.best_metric.lower()}_at_k{eval_k}": best_at_eval_k,
+            "selected_n_by_target_recall": selected_n,
+            "recall_by_n": recall_by_n,
         },
         "alternative_metrics_summary": {
             "primary_metric": f"Precision@{eval_k}",
