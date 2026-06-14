@@ -448,9 +448,7 @@ def main() -> None:
     bi_metrics = retrieval_metrics(bi_encoder_topn, query_texts, labels, k=eval_k)
     LOGGER.info("Bi-encoder only @%d: %s", eval_k, bi_metrics)
 
-    LOGGER.info("Loading reranker: %s", args.reranker_model)
-    reranker = load_reranker(args.reranker_model, device)
-
+    # 1. Tìm n tối ưu trước bằng Recall@n, chưa load reranker
     n_search_values = sorted(set(n for n in args.n_search_values if n <= max_n))
     if not n_search_values:
         n_search_values = [max_n]
@@ -458,7 +456,10 @@ def main() -> None:
     recall_by_n: dict[int, float] = {}
     for n in n_search_values:
         recall_by_n[n] = retrieval_metrics(
-            [row[:n] for row in bi_encoder_topn], query_texts, labels, k=n
+            [row[:n] for row in bi_encoder_topn],
+            query_texts,
+            labels,
+            k=n,
         )[f"Recall@{n}"]
 
     selected_n = n_search_values[-1]
@@ -468,15 +469,24 @@ def main() -> None:
                 selected_n = n
                 break
 
-    saturation_n = 100 if 100 in n_search_values else None
-    if saturation_n is not None and recall_by_n.get(100, 0.0) >= (args.target_recall or 0.0):
-        n_search_values = [n for n in n_search_values if n <= 100]
-        LOGGER.info("Recall@100 đã bão hòa; dừng search tại n<=100, không mở rộng tới 500.")
-        selected_n = min(selected_n, 100)
+    LOGGER.info("Recall by n: %s", recall_by_n)
+    LOGGER.info("Selected n = %d", selected_n)
 
-    max_n_eff = max(n_search_values)
+    # 2. Chỉ sau khi có selected_n mới load reranker
+    LOGGER.info("Loading reranker: %s", args.reranker_model)
+    reranker = load_reranker(args.reranker_model, device)
+
+    # 3. Chỉ rerank selected_n, không rerank max 100/500 nữa
+    max_n_eff = selected_n
     search_rows = [row[:max_n_eff] for row in bi_encoder_topn]
-    search_cache = build_rerank_score_cache(
+    LOGGER.info(
+        "Reranking tại selected_n=%d (%d queries × %d = %d cặp)...",
+        max_n_eff,
+        len(query_texts),
+        max_n_eff,
+        max_n_eff * len(query_texts),
+    )
+    score_cache = build_rerank_score_cache(
         query_texts,
         search_rows,
         id_to_text,
@@ -484,16 +494,7 @@ def main() -> None:
         args.rerank_batch_size,
         device,
     )
-    n_pairs = max_n_eff * len(query_texts)
-    LOGGER.info(
-        "Reranking một lần tại n=%d (%d queries × %d = %d cặp)...",
-        max_n_eff,
-        len(query_texts),
-        max_n_eff,
-        n_pairs,
-    )
-    score_cache = search_cache
-    LOGGER.info("Đã cache điểm reranker — các n/k nhỏ hơn dùng lại cache.")
+    LOGGER.info("Đã cache điểm reranker tại selected_n=%d.", selected_n)
 
     grid_query_texts = query_texts
     grid_labels = labels
@@ -512,7 +513,7 @@ def main() -> None:
     best_score = -1.0
     best_nk: dict | None = None
 
-    for n in n_search_values:
+    for n in [selected_n]:
         n_eff = min(n, max_n_eff)
         cand_ids = [row[:n_eff] for row in grid_topn]
         reranked_ids = rerank_from_cache(cand_ids, grid_cache)
