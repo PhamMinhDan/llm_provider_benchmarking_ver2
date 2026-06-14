@@ -393,8 +393,110 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Bỏ phân tích FPR/FNR/EER (tiết kiệm thời gian)",
     )
+    parser.add_argument(
+        "--threshold-only",
+        action="store_true",
+        help="Chỉ chạy phân tích ngưỡng reranker (không encode E5 / không grid n×k)",
+    )
+    parser.add_argument(
+        "--threshold-output",
+        type=Path,
+        default=None,
+        help="File JSON ngưỡng (mặc định: cùng thư mục output, tên reranker_threshold.json)",
+    )
+    parser.add_argument(
+        "--max-neg-per-query",
+        type=int,
+        default=3,
+        help="Số negative mẫu mỗi query cho phân tích ngưỡng",
+    )
     parser.add_argument("--device", default=None)
     return parser.parse_args()
+
+
+def run_threshold_analysis(
+    args: argparse.Namespace,
+    device: str,
+    products_df: pd.DataFrame,
+    query_texts: list[str],
+    jsonl_rows: list[dict] | None = None,
+) -> dict:
+    LOGGER.info("Loading reranker: %s", args.reranker_model)
+    reranker = load_reranker(args.reranker_model, device)
+
+    LOGGER.info("Threshold analysis on query-passage pairs (%d queries)...", len(query_texts))
+    if args.query_jsonl and jsonl_rows is not None:
+        thr_rows = [r for r in jsonl_rows if r.get("query") in set(query_texts)]
+        id_to_text = dict(
+            zip(
+                products_df["product_id"].astype(str),
+                products_df["searchable_text"].astype(str),
+            )
+        )
+        thr_pairs, thr_labels = build_threshold_dataset_from_jsonl(thr_rows, id_to_text)
+    else:
+        sub_df = products_df[products_df[args.query_col].astype(str).str.strip().isin(query_texts)]
+        thr_pairs, thr_labels = build_threshold_dataset_from_ecommerce(
+            sub_df,
+            query_col=args.query_col,
+            max_neg_per_query=args.max_neg_per_query,
+        )
+
+    thr_scores = score_pairs(reranker, thr_pairs, args.rerank_batch_size, device)
+    thr_result = threshold_analysis(thr_scores, thr_labels)
+    LOGGER.info(
+        "EER τ=%.4f (FPR=%.4f, FNR=%.4f) | min-error τ=%.4f (err=%.4f)",
+        thr_result["EER"].get("threshold", 0.0),
+        thr_result["EER"].get("FPR", 0.0),
+        thr_result["EER"].get("FNR", 0.0),
+        thr_result["min_error"].get("threshold", 0.0),
+        thr_result["min_error"].get("error_rate", 0.0),
+    )
+    return {
+        "reranker_model": str(args.reranker_model),
+        "eval_csv": str(args.eval_csv),
+        "query_col": args.query_col,
+        "n_eval_queries": len(query_texts),
+        "max_neg_per_query": args.max_neg_per_query,
+        "n_pairs": thr_result["n_pairs"],
+        "threshold_analysis": {
+            "EER": thr_result["EER"],
+            "min_error_rate": thr_result["min_error"],
+            "n_pairs": thr_result["n_pairs"],
+            "n_positive": thr_result["n_positive"],
+            "n_negative": thr_result["n_negative"],
+        },
+        "threshold_curve": thr_result["curve"],
+        "deployment_threshold": {
+            "eer": thr_result["EER"],
+            "min_error_rate": thr_result["min_error"],
+        },
+    }
+
+
+def run_threshold_only(args: argparse.Namespace, device: str) -> None:
+    products_df = pd.read_csv(args.eval_csv)
+    products_df = products_df.dropna(subset=["product_id", "searchable_text"]).drop_duplicates("product_id")
+
+    jsonl_rows: list[dict] | None = None
+    if args.query_jsonl:
+        jsonl_rows = load_query_jsonl_files(args.query_jsonl)
+        labels = build_labels_from_jsonl(jsonl_rows)
+        eco_ids = set(products_df["product_id"].astype(str))
+        labels = {q: rel & eco_ids for q, rel in labels.items() if rel & eco_ids}
+        query_texts = sorted(labels)
+    else:
+        query_texts, _ = build_eval_from_ecommerce(products_df, query_col=args.query_col)
+
+    if args.max_queries:
+        query_texts = query_texts[: args.max_queries]
+
+    result = run_threshold_analysis(args, device, products_df, query_texts, jsonl_rows)
+    out = args.threshold_output or (args.output.parent / "reranker_threshold.json")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    LOGGER.info("Saved threshold analysis: %s", out)
+    print(json.dumps(result["deployment_threshold"], ensure_ascii=False, indent=2))
 
 
 def main() -> None:
@@ -402,6 +504,10 @@ def main() -> None:
     args = parse_args()
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     LOGGER.info("Device: %s", device)
+
+    if args.threshold_only:
+        run_threshold_only(args, device)
+        return
 
     products_df = pd.read_csv(args.eval_csv)
     products_df = products_df.dropna(subset=["product_id", "searchable_text"]).drop_duplicates("product_id")
@@ -414,6 +520,7 @@ def main() -> None:
         query_texts = sorted(labels)
         eval_source = "jsonl:" + ",".join(str(p.name) for p in args.query_jsonl)
     else:
+        jsonl_rows = None
         query_texts, labels = build_eval_from_ecommerce(products_df, query_col=args.query_col)
         eval_source = f"ecommerce.csv[{args.query_col}]"
 
@@ -566,26 +673,26 @@ def main() -> None:
         reranker_metrics = {}
 
     if args.skip_threshold:
-        thr_result = {
-            "curve": [],
-            "EER": {},
-            "min_error": {},
-            "n_pairs": 0,
-            "n_positive": 0,
-            "n_negative": 0,
+        thr_block = {
+            "threshold_analysis": {
+                "EER": {},
+                "min_error_rate": {},
+                "n_pairs": 0,
+                "n_positive": 0,
+                "n_negative": 0,
+            },
+            "threshold_curve": [],
+            "deployment_threshold": {},
         }
     else:
-        LOGGER.info("Threshold analysis on query-passage pairs...")
-        if args.query_jsonl:
-            thr_rows = [r for r in jsonl_rows if r.get("query") in set(query_texts)]
-            thr_pairs, thr_labels = build_threshold_dataset_from_jsonl(thr_rows, id_to_text)
-        else:
-            sub_df = products_df[products_df[args.query_col].astype(str).str.strip().isin(query_texts)]
-            thr_pairs, thr_labels = build_threshold_dataset_from_ecommerce(
-                sub_df, query_col=args.query_col
-            )
-        thr_scores = score_pairs(reranker, thr_pairs, args.rerank_batch_size, device)
-        thr_result = threshold_analysis(thr_scores, thr_labels)
+        thr_block = run_threshold_analysis(
+            args, device, products_df, query_texts, jsonl_rows if args.query_jsonl else None
+        )
+        thr_block = {
+            "threshold_analysis": thr_block["threshold_analysis"],
+            "threshold_curve": thr_block["threshold_curve"],
+            "deployment_threshold": thr_block["deployment_threshold"],
+        }
 
     result = {
         "embedding_model": str(args.embedding_model),
@@ -617,14 +724,7 @@ def main() -> None:
             "bi_encoder_only": {k: bi_metrics[k] for k in [f"Precision@{eval_k}", f"Recall@{eval_k}", f"F1@{eval_k}", f"MRR@{eval_k}", f"NDCG@{eval_k}"] if k in bi_metrics},
             "reranker_best_n": {k: reranker_metrics.get(k) for k in [f"Precision@{eval_k}", f"Recall@{eval_k}", f"F1@{eval_k}", f"MRR@{eval_k}", f"NDCG@{eval_k}"]},
         },
-        "threshold_analysis": {
-            "EER": thr_result["EER"],
-            "min_error_rate": thr_result["min_error"],
-            "n_pairs": thr_result["n_pairs"],
-            "n_positive": thr_result["n_positive"],
-            "n_negative": thr_result["n_negative"],
-        },
-        "threshold_curve": thr_result["curve"],
+        **thr_block,
     }
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -636,7 +736,8 @@ def main() -> None:
             "reranker_best": reranker_metrics,
             "alternative_metrics_summary": result["alternative_metrics_summary"],
             "optimal_n_k": result["optimal_n_k"],
-            "threshold": result["threshold_analysis"],
+            "threshold": result.get("threshold_analysis", {}),
+            "deployment_threshold": result.get("deployment_threshold", {}),
         },
         ensure_ascii=False,
         indent=2,
