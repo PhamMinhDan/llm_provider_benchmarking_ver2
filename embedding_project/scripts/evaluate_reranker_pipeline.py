@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import sys
 from pathlib import Path
 
@@ -45,6 +46,92 @@ def build_labels_from_jsonl(rows: list[dict]) -> dict[str, set[str]]:
         if query and pid:
             labels.setdefault(query, set()).add(pid)
     return labels
+
+
+def build_eval_from_jsonl(
+    rows: list[dict],
+    corpus_ids: set[str],
+) -> tuple[list[str], dict[str, set[str]]]:
+    """Query từ jsonl (vd. test_5000), nhãn = product_id trong metadata."""
+    labels: dict[str, set[str]] = {}
+    query_order: list[str] = []
+    for row in rows:
+        q = str(row.get("query", "")).strip()
+        pid = str(row.get("metadata", {}).get("product_id", "")).strip()
+        if not q or not pid or pid not in corpus_ids:
+            continue
+        if q not in labels:
+            query_order.append(q)
+        labels.setdefault(q, set()).add(pid)
+    return query_order, labels
+
+
+def tokenize_query(text: str, min_len: int = 2) -> list[str]:
+    return [t for t in re.findall(r"[\w]+", text.lower(), flags=re.UNICODE) if len(t) >= min_len]
+
+
+def build_eval_from_benchmark_csv(
+    benchmark_path: Path,
+    products_df: pd.DataFrame,
+    min_token_len: int = 2,
+) -> tuple[list[str], dict[str, set[str]], int]:
+    """Gán nhãn yếu: SP relevant nếu mọi token query (độ dài >= min) xuất hiện trong searchable_text."""
+    qdf = pd.read_csv(benchmark_path)
+    corpus_texts = products_df["searchable_text"].astype(str).str.lower()
+    product_ids = products_df["product_id"].astype(str)
+
+    labels: dict[str, set[str]] = {}
+    query_order: list[str] = []
+    skipped = 0
+
+    for _, row in qdf.iterrows():
+        q = str(row.get("query", "")).strip()
+        if not q:
+            skipped += 1
+            continue
+        tokens = tokenize_query(q, min_token_len)
+        if not tokens:
+            skipped += 1
+            continue
+        mask = pd.Series(True, index=products_df.index)
+        for tok in tokens:
+            mask &= corpus_texts.str.contains(re.escape(tok), regex=True, na=False)
+        rel = set(product_ids[mask])
+        if not rel:
+            skipped += 1
+            continue
+        if q not in labels:
+            query_order.append(q)
+        labels.setdefault(q, set()).update(rel)
+
+    return query_order, labels, skipped
+
+
+def load_eval_queries(
+    args: argparse.Namespace,
+    products_df: pd.DataFrame,
+) -> tuple[list[str], dict[str, set[str]], str, list[dict] | None, dict]:
+    extra: dict = {}
+    eco_ids = set(products_df["product_id"].astype(str))
+    if args.benchmark_queries:
+        query_texts, labels, skipped = build_eval_from_benchmark_csv(
+            args.benchmark_queries,
+            products_df,
+            min_token_len=args.benchmark_min_token_len,
+        )
+        extra["benchmark_skipped_queries"] = skipped
+        extra["labeling"] = (
+            f"token_match_all(min_len={args.benchmark_min_token_len}) in searchable_text"
+        )
+        eval_source = f"benchmark:{args.benchmark_queries.name}"
+        return query_texts, labels, eval_source, None, extra
+    if args.query_jsonl:
+        jsonl_rows = load_query_jsonl_files(args.query_jsonl)
+        query_texts, labels = build_eval_from_jsonl(jsonl_rows, eco_ids)
+        eval_source = "jsonl:" + ",".join(p.name for p in args.query_jsonl)
+        return query_texts, labels, eval_source, jsonl_rows, extra
+    query_texts, labels = build_eval_from_ecommerce(products_df, query_col=args.query_col)
+    return query_texts, labels, f"ecommerce.csv[{args.query_col}]", None, extra
 
 
 def build_eval_from_ecommerce(
@@ -272,12 +359,98 @@ def build_threshold_dataset_from_jsonl(
     return pairs, np.asarray(labels, dtype=np.int32)
 
 
+def build_threshold_dataset_from_retrieval(
+    query_texts: list[str],
+    labels: dict[str, set[str]],
+    bi_encoder_topn: list[list[str]],
+    id_to_text: dict[str, str],
+    max_neg_per_query: int = 5,
+    n_pool: int = 30,
+) -> tuple[list[tuple[str, str]], np.ndarray]:
+    """Positive = SP đúng (ưu tiên trong top-n E5); negative = ứng viên E5 hard không thuộc nhãn."""
+    pairs: list[tuple[str, str]] = []
+    label_arr: list[int] = []
+
+    for qi, q in enumerate(query_texts):
+        rel = labels.get(q, set())
+        if not rel:
+            continue
+        pos_pid = next((p for p in bi_encoder_topn[qi] if p in rel), None)
+        if pos_pid is None:
+            pos_pid = next(iter(rel))
+        pos_text = id_to_text.get(pos_pid, "")
+        if not pos_text:
+            continue
+        pairs.append((q, pos_text))
+        label_arr.append(1)
+
+        negs: list[str] = []
+        for pid in bi_encoder_topn[qi][:n_pool]:
+            if pid not in rel:
+                negs.append(pid)
+            if len(negs) >= max_neg_per_query:
+                break
+        for pid in negs:
+            neg_text = id_to_text.get(pid, "")
+            if neg_text:
+                pairs.append((q, neg_text))
+                label_arr.append(0)
+
+    return pairs, np.asarray(label_arr, dtype=np.int32)
+
+
+def build_threshold_dataset_from_labeled_random_neg(
+    query_texts: list[str],
+    labels: dict[str, set[str]],
+    id_to_text: dict[str, str],
+    max_neg_per_query: int = 3,
+    seed: int = 42,
+) -> tuple[list[tuple[str, str]], np.ndarray]:
+    rng = np.random.default_rng(seed)
+    all_pids = list(id_to_text.keys())
+    pairs: list[tuple[str, str]] = []
+    label_arr: list[int] = []
+
+    for q in query_texts:
+        rel = labels.get(q, set())
+        if not rel:
+            continue
+        pos_pid = next(iter(rel))
+        pos_text = id_to_text.get(pos_pid, "")
+        if not pos_text:
+            continue
+        pairs.append((q, pos_text))
+        label_arr.append(1)
+
+        others = [p for p in all_pids if p not in rel]
+        if not others:
+            continue
+        n_neg = min(max_neg_per_query, len(others))
+        for neg_pid in rng.choice(others, size=n_neg, replace=False):
+            pairs.append((q, id_to_text[neg_pid]))
+            label_arr.append(0)
+
+    return pairs, np.asarray(label_arr, dtype=np.int32)
+
+
 def threshold_analysis(
     scores: np.ndarray,
     labels: np.ndarray,
     n_steps: int = 201,
 ) -> dict:
-    thresholds = np.linspace(0.0, 1.0, n_steps)
+    if len(scores) == 0:
+        return {
+            "curve": [],
+            "EER": {},
+            "min_error": {},
+            "n_pairs": 0,
+            "n_positive": 0,
+            "n_negative": 0,
+        }
+    lo, hi = float(np.min(scores)), float(np.max(scores))
+    if hi <= lo:
+        hi = lo + 1e-6
+    thresholds = np.linspace(lo, hi, n_steps)
     curve = []
     for t in thresholds:
         pred = scores >= t
@@ -354,7 +527,19 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         nargs="*",
         default=None,
-        help="Tùy chọn: dùng query từ jsonl thay vì cột CSV (vd. train+valid, không gồm test)",
+        help="Query từ jsonl (vd. data/training/test_5000.jsonl) — đánh giá thực tế hơn title=query",
+    )
+    parser.add_argument(
+        "--benchmark-queries",
+        type=Path,
+        default=None,
+        help="CSV benchmark (query_id, query); nhãn = token match trong searchable_text",
+    )
+    parser.add_argument(
+        "--benchmark-min-token-len",
+        type=int,
+        default=2,
+        help="Độ dài tối thiểu mỗi token khi gán nhãn từ benchmark CSV",
     )
     parser.add_argument("--output", type=Path, default=root / "embedding_project/outputs/evaluation/reranker_pipeline_eval.json")
     parser.add_argument("--n-values", type=int, nargs="+", default=[20, 50, 100, 200, 500])
@@ -419,21 +604,45 @@ def run_threshold_analysis(
     device: str,
     products_df: pd.DataFrame,
     query_texts: list[str],
+    labels: dict[str, set[str]],
     jsonl_rows: list[dict] | None = None,
+    bi_encoder_topn: list[list[str]] | None = None,
+    id_to_text: dict[str, str] | None = None,
 ) -> dict:
     LOGGER.info("Loading reranker: %s", args.reranker_model)
     reranker = load_reranker(args.reranker_model, device)
 
     LOGGER.info("Threshold analysis on query-passage pairs (%d queries)...", len(query_texts))
-    if args.query_jsonl and jsonl_rows is not None:
-        thr_rows = [r for r in jsonl_rows if r.get("query") in set(query_texts)]
-        id_to_text = dict(
-            zip(
-                products_df["product_id"].astype(str),
-                products_df["searchable_text"].astype(str),
-            )
+    if bi_encoder_topn is not None and id_to_text is not None:
+        LOGGER.info("Dùng hard negative từ top-n E5 (retrieval).")
+        thr_pairs, thr_labels = build_threshold_dataset_from_retrieval(
+            query_texts,
+            labels,
+            bi_encoder_topn,
+            id_to_text,
+            max_neg_per_query=args.max_neg_per_query,
         )
+    elif args.query_jsonl and jsonl_rows is not None:
+        thr_rows = [r for r in jsonl_rows if r.get("query") in set(query_texts)]
+        if id_to_text is None:
+            id_to_text = dict(
+                zip(
+                    products_df["product_id"].astype(str),
+                    products_df["searchable_text"].astype(str),
+                )
+            )
         thr_pairs, thr_labels = build_threshold_dataset_from_jsonl(thr_rows, id_to_text)
+    elif args.benchmark_queries:
+        if id_to_text is None:
+            id_to_text = dict(
+                zip(
+                    products_df["product_id"].astype(str),
+                    products_df["searchable_text"].astype(str),
+                )
+            )
+        thr_pairs, thr_labels = build_threshold_dataset_from_labeled_random_neg(
+            query_texts, labels, id_to_text, max_neg_per_query=args.max_neg_per_query
+        )
     else:
         sub_df = products_df[products_df[args.query_col].astype(str).str.strip().isin(query_texts)]
         thr_pairs, thr_labels = build_threshold_dataset_from_ecommerce(
@@ -479,19 +688,22 @@ def run_threshold_only(args: argparse.Namespace, device: str) -> None:
     products_df = products_df.dropna(subset=["product_id", "searchable_text"]).drop_duplicates("product_id")
 
     jsonl_rows: list[dict] | None = None
-    if args.query_jsonl:
-        jsonl_rows = load_query_jsonl_files(args.query_jsonl)
-        labels = build_labels_from_jsonl(jsonl_rows)
-        eco_ids = set(products_df["product_id"].astype(str))
-        labels = {q: rel & eco_ids for q, rel in labels.items() if rel & eco_ids}
-        query_texts = sorted(labels)
-    else:
-        query_texts, _ = build_eval_from_ecommerce(products_df, query_col=args.query_col)
+    query_texts, labels, eval_source, jsonl_rows, eval_extra = load_eval_queries(args, products_df)
 
     if args.max_queries:
         query_texts = query_texts[: args.max_queries]
+        labels = {q: labels[q] for q in query_texts}
 
-    result = run_threshold_analysis(args, device, products_df, query_texts, jsonl_rows)
+    id_to_text = dict(
+        zip(
+            products_df["product_id"].astype(str),
+            products_df["searchable_text"].astype(str),
+        )
+    )
+    result = run_threshold_analysis(
+        args, device, products_df, query_texts, labels, jsonl_rows, id_to_text=id_to_text
+    )
+    result.update(eval_extra)
     out = args.threshold_output or (args.output.parent / "reranker_threshold.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -512,21 +724,17 @@ def main() -> None:
     products_df = pd.read_csv(args.eval_csv)
     products_df = products_df.dropna(subset=["product_id", "searchable_text"]).drop_duplicates("product_id")
 
-    if args.query_jsonl:
-        jsonl_rows = load_query_jsonl_files(args.query_jsonl)
-        labels = build_labels_from_jsonl(jsonl_rows)
-        eco_ids = set(products_df["product_id"].astype(str))
-        labels = {q: rel & eco_ids for q, rel in labels.items() if rel & eco_ids}
-        query_texts = sorted(labels)
-        eval_source = "jsonl:" + ",".join(str(p.name) for p in args.query_jsonl)
-    else:
-        jsonl_rows = None
-        query_texts, labels = build_eval_from_ecommerce(products_df, query_col=args.query_col)
-        eval_source = f"ecommerce.csv[{args.query_col}]"
+    query_texts, labels, eval_source, jsonl_rows, eval_extra = load_eval_queries(args, products_df)
 
     if args.max_queries:
         query_texts = query_texts[: args.max_queries]
         labels = {q: labels[q] for q in query_texts}
+    if eval_extra.get("benchmark_skipped_queries"):
+        LOGGER.info(
+            "Benchmark: bỏ %d query không gán được nhãn token-match.",
+            eval_extra["benchmark_skipped_queries"],
+        )
+    LOGGER.info("Eval queries: %d | source: %s", len(query_texts), eval_source)
     product_ids = products_df["product_id"].astype(str).tolist()
     corpus_texts = products_df["searchable_text"].astype(str).tolist()
     id_to_text = dict(zip(product_ids, corpus_texts))
@@ -686,7 +894,14 @@ def main() -> None:
         }
     else:
         thr_block = run_threshold_analysis(
-            args, device, products_df, query_texts, jsonl_rows if args.query_jsonl else None
+            args,
+            device,
+            products_df,
+            query_texts,
+            labels,
+            jsonl_rows,
+            bi_encoder_topn=bi_encoder_topn,
+            id_to_text=id_to_text,
         )
         thr_block = {
             "threshold_analysis": thr_block["threshold_analysis"],
@@ -699,6 +914,7 @@ def main() -> None:
         "reranker_model": str(args.reranker_model),
         "eval_csv": str(args.eval_csv),
         "eval_source": eval_source,
+        "eval_meta": eval_extra,
         "query_col": args.query_col,
         "corpus_size": len(product_ids),
         "n_eval_queries": len(query_texts),

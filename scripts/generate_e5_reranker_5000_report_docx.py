@@ -13,6 +13,44 @@ REPO = Path(__file__).resolve().parent.parent
 FIGURES = REPO / "embedding_project/outputs/evaluation/figures"
 REPORT_OUT = REPO / "embedding_project/outputs/evaluation/bao_cao_e5_reranker_5000.docx"
 
+# Kết quả Colab 14/06/2026 — smoke test 500 query (MAX_QUERIES=500)
+EVAL_N_QUERIES = 500
+EVAL_CORPUS = 5000
+SELECTED_N = 10
+TARGET_RECALL = 0.98
+RERANK_PAIRS = 5000
+
+BI_ENCODER = {
+    "P@10": "0,1002",
+    "R@10": "1,0000",
+    "F1@10": "0,1821",
+    "MRR@10": "0,9990",
+    "NDCG@10": "0,9993",
+}
+RERANKER = {
+    "P@10": "0,1002",
+    "R@10": "1,0000",
+    "F1@10": "0,1821",
+    "MRR@10": "0,9990",
+    "NDCG@10": "0,9993",
+}
+RECALL_BY_N = {"10": 1.0, "20": 1.0, "30": 1.0, "50": 1.0, "75": 1.0, "100": 1.0}
+K_GRID = [
+    ["5", "0,2004", "1,0000", "0,3339", "0,9990", "0,9993"],
+    ["10", "0,1002", "1,0000", "0,1821", "0,9990", "0,9993"],
+]
+OPT_K_NDCG = 5
+THRESHOLD = {
+    "tau_eer": 0.005,
+    "tau_min_err": 0.005,
+    "fpr": 0.0,
+    "fnr": 0.0,
+    "error_rate": 0.0,
+    "n_pairs": 2004,
+    "n_pos": 501,
+    "n_neg": 1503,
+}
+
 
 def add_table(doc: Document, headers: list[str], rows: list[list[str]]) -> None:
     table = doc.add_table(rows=1, cols=len(headers))
@@ -44,228 +82,220 @@ def main() -> None:
     doc.add_paragraph("Dự án: embedding_project — Tìm kiếm ngữ nghĩa sản phẩm tiếng Việt")
     doc.add_paragraph(f"Ngày báo cáo: {date.today().strftime('%d/%m/%Y')}")
     doc.add_paragraph(
-        "Dữ liệu: ecommerce.csv (5000 SP) | Model: e5_base_finetuned_5000 + reranker"
+        "Dữ liệu: ecommerce.csv (5000 SP) | Model: e5_base_finetuned_5000 + reranker (XLM-RoBERTa)"
     )
 
     doc.add_heading("1. Tóm tắt", level=1)
     add_table(
         doc,
-        ["Chỉ số", "Chỉ Bi-encoder @10", "+ Reranker @10 (n=20)"],
+        ["Chỉ số", "Chỉ Bi-encoder @10", f"+ Reranker @10 (n={SELECTED_N})"],
         [
-            ["Precision@10", "0,1114", "0,1115"],
-            ["Recall@10", "0,9979", "0,9986"],
-            ["F1@10", "0,2005", "0,2006"],
-            ["MRR@10", "0,9902", "—"],
-            ["NDCG@10", "0,9926", "—"],
+            ["Precision@10", BI_ENCODER["P@10"], RERANKER["P@10"]],
+            ["Recall@10", BI_ENCODER["R@10"], RERANKER["R@10"]],
+            ["F1@10", BI_ENCODER["F1@10"], RERANKER["F1@10"]],
+            ["MRR@10", BI_ENCODER["MRR@10"], RERANKER["MRR@10"]],
+            ["NDCG@10", BI_ENCODER["NDCG@10"], RERANKER["NDCG@10"]],
         ],
     )
     doc.add_paragraph(
-        "Precision@10 khoảng 11% không phải do model kém. Đây là giới hạn toán học "
-        "của cách đánh giá: mỗi query chỉ có 1 nhãn đúng, top-10 cố định → trần P@10 ≈ 10%. "
-        "Recall@10 ≈ 99,8% cho thấy model gần như luôn đưa đúng sản phẩm vào top-10."
+        f"Thí nghiệm mới (Colab T4, {EVAL_N_QUERIES} query / corpus {EVAL_CORPUS}): "
+        f"dò Recall@n trước → chọn n={SELECTED_N} (nhỏ nhất đạt target recall {TARGET_RECALL}) "
+        f"→ chỉ rerank {RERANK_PAIRS} cặp. Bi-encoder và reranker cho metric giống nhau vì E5 đã xếp đúng từ đầu."
+    )
+    doc.add_paragraph(
+        f"n tối ưu (recall): {SELECTED_N}. k tối ưu (max NDCG): {OPT_K_NDCG}. "
+        f"Ngưỡng triển khai τ={THRESHOLD['tau_eer']:.3f} (EER, FPR=FNR=0 trên {THRESHOLD['n_pairs']} cặp mẫu)."
+    )
+    doc.add_paragraph(
+        "Precision@10 ≈ 10% là giới hạn toán học khi mỗi query có 1 nhãn và top-k=10 cố định; "
+        "Recall@10 = 100% cho thấy model luôn tìm đúng SP trong top-10."
     )
 
     doc.add_heading("2. Khám phá dữ liệu ecommerce.csv", level=1)
 
     doc.add_heading("2.1. Nguồn và quy mô", level=2)
     doc.add_paragraph(
-        "Corpus gồm 5000 sản phẩm từ 5 sàn thương mại điện tử, mỗi nguồn 1000 SP, "
-        "phân bố cân bằng. Query đánh giá lấy từ cột title; corpus dùng searchable_text."
+        "Corpus gồm 5000 sản phẩm từ 5 sàn, mỗi nguồn 1000 SP. "
+        "Query đánh giá: cột title; corpus: searchable_text."
     )
-    add_figure(
-        doc,
-        FIGURES / "c__llm_provider_benchmarking_source_top.png",
-        "Hình 1. Phân phối số lượng sản phẩm theo nguồn dữ liệu",
+    add_figure(doc, FIGURES / "c__llm_provider_benchmarking_source_top.png",
+               "Hình 1. Phân phối số lượng sản phẩm theo nguồn dữ liệu")
+
+    doc.add_heading("2.2. Danh mục (category)", level=2)
+    add_figure(doc, FIGURES / "category_top.png",
+               "Hình 2. Top category xuất hiện nhiều nhất")
+    add_figure(doc, FIGURES / "category_depth.png",
+               "Hình 3. Phân phối độ sâu category")
+    doc.add_paragraph(
+        "Điện thoại thông minh và phụ kiện điện tử chiếm tỷ trọng lớn; "
+        "độ sâu category chủ yếu 3–5 cấp."
     )
 
-    doc.add_heading("2.2. Giá trị thiếu", level=2)
+    doc.add_heading("2.3. Thương hiệu (brand)", level=2)
+    add_figure(doc, FIGURES / "brand_top.png",
+               "Hình 4. Top thương hiệu xuất hiện nhiều nhất")
+    doc.add_paragraph(
+        "Nhiều SP thiếu brand (Missing / No Brand); model phụ thuộc title và searchable_text."
+    )
+
+    doc.add_heading("2.4. Giá trị thiếu", level=2)
     add_table(
         doc,
         ["Cột", "Tỷ lệ thiếu (ước lượng)"],
         [
-            ["tags", "~84%"],
+            ["tags", "~85%"],
             ["size", "~60%"],
             ["color_vi", "~51%"],
             ["brand", "~15%"],
             ["description, price, image_url", "0%"],
         ],
     )
-    add_figure(
-        doc,
-        FIGURES / "c__llm_provider_benchmarking_missing_values.png",
-        "Hình 2. Tỷ lệ giá trị thiếu theo cột",
-    )
+    add_figure(doc, FIGURES / "c__llm_provider_benchmarking_missing_values.png",
+               "Hình 5. Tỷ lệ giá trị thiếu theo cột")
+
+    doc.add_heading("2.5. Số lượng review", level=2)
+    add_figure(doc, FIGURES / "c__llm_provider_benchmarking_reviews_count_hist.png",
+               "Hình 6. Phân phối số review (log1p)")
+    add_figure(doc, FIGURES / "c__llm_provider_benchmarking_reviews_count_box.png",
+               "Hình 7. Boxplot số review")
+
+    doc.add_heading("2.6. Rating", level=2)
+    add_figure(doc, FIGURES / "c__llm_provider_benchmarking_rating_hist.png",
+               "Hình 8. Phân phối rating")
+    add_figure(doc, FIGURES / "c__llm_provider_benchmarking_rating_box.png",
+               "Hình 9. Boxplot rating")
+
+    doc.add_heading("2.7. Giá sản phẩm", level=2)
+    add_figure(doc, FIGURES / "c__llm_provider_benchmarking_price_num_hist.png",
+               "Hình 10. Phân phối giá sản phẩm (log1p)")
+    add_figure(doc, FIGURES / "c__llm_provider_benchmarking_price_num_box.png",
+               "Hình 11. Boxplot giá sản phẩm")
+
+    doc.add_heading("2.8. Rating vs số review", level=2)
+    add_figure(doc, FIGURES / "c__llm_provider_benchmarking_rating_vs_reviews.png",
+               "Hình 12. Mối quan hệ giữa rating và số lượng review")
+
+    doc.add_heading("3. Pipeline và cấu hình thí nghiệm", level=1)
     doc.add_paragraph(
-        "Model chủ yếu học từ title và searchable_text; các trường cấu trúc (tags, size, color) thưa."
+        "Giai đoạn 1: E5 bi-encoder → cosine → Recall@n trên các n ∈ {10,20,30,50,75,100}.\n"
+        f"Giai đoạn 2: Chọn n nhỏ nhất đạt Recall ≥ {TARGET_RECALL} → load reranker → chỉ rerank tại n đó.\n"
+        "Giai đoạn 3: Grid k ∈ {5,10,20}; phân tích ngưỡng FPR/FNR/EER riêng (--threshold-only)."
     )
-
-    doc.add_heading("2.3. Số lượng review", level=2)
-    add_figure(
-        doc,
-        FIGURES / "c__llm_provider_benchmarking_reviews_count_hist.png",
-        "Hình 3. Phân phối số review (log1p)",
-    )
-    add_figure(
-        doc,
-        FIGURES / "c__llm_provider_benchmarking_reviews_count_box.png",
-        "Hình 4. Boxplot số review",
-    )
-    doc.add_paragraph(
-        "Phân phối lệch phải: nhiều sản phẩm có 0 review; một số SP có số review cực đoan."
-    )
-
-    doc.add_heading("2.4. Rating", level=2)
-    add_figure(
-        doc,
-        FIGURES / "c__llm_provider_benchmarking_rating_hist.png",
-        "Hình 5. Phân phối rating",
-    )
-    add_figure(
-        doc,
-        FIGURES / "c__llm_provider_benchmarking_rating_box.png",
-        "Hình 6. Boxplot rating",
-    )
-    doc.add_paragraph(
-        "Hai đỉnh ở rating = 0 và 4–5 sao; median khoảng 4,3."
-    )
-
-    doc.add_heading("2.5. Giá sản phẩm", level=2)
-    add_figure(
-        doc,
-        FIGURES / "c__llm_provider_benchmarking_price_num_hist.png",
-        "Hình 7. Phân phối giá sản phẩm (log1p)",
-    )
-    add_figure(
-        doc,
-        FIGURES / "c__llm_provider_benchmarking_price_num_box.png",
-        "Hình 8. Boxplot giá sản phẩm",
-    )
-    doc.add_paragraph(
-        "Khoảng giá rất rộng; có outlier cực đoan (có thể do lỗi đơn vị hoặc nhập liệu)."
-    )
-
-    doc.add_heading("2.6. Rating vs số review", level=2)
-    add_figure(
-        doc,
-        FIGURES / "c__llm_provider_benchmarking_rating_vs_reviews.png",
-        "Hình 9. Mối quan hệ giữa rating và số lượng review",
-    )
-    doc.add_paragraph(
-        "Sản phẩm nhiều review thường có rating cao hơn (hiệu ứng độ phổ biến)."
-    )
-
-    doc.add_heading("3. Công việc gần đây: Fine-tune trên tập mới", level=1)
-
-    doc.add_heading("3.1. Chia dữ liệu", level=2)
-    add_table(
-        doc,
-        ["File", "Số mẫu", "Mục đích"],
-        [
-            ["train_5000.jsonl", "3500", "Train"],
-            ["valid_5000.jsonl", "750", "Validation"],
-            ["test_5000.jsonl", "750", "Test (tùy chọn)"],
-        ],
-    )
-    doc.add_paragraph(
-        "Query: title hoặc câu query tự nhiên trong jsonl. Passage: searchable_text. "
-        "Loss: MultipleNegativesRankingLoss (in-batch negatives)."
-    )
-
-    doc.add_heading("3.2. Fine-tune E5-base", level=2)
     add_table(
         doc,
         ["Tham số", "Giá trị"],
         [
-            ["Base model", "intfloat/multilingual-e5-base"],
-            ["Output", "e5_base_finetuned_5000"],
-            ["Epoch", "1"],
-            ["Batch size", "8"],
-            ["Learning rate", "1e-5"],
-            ["FP16", "Có"],
-            ["Thời gian train", "~4,8 phút (Colab GPU)"],
+            ["Embedding model", "e5_base_finetuned_5000"],
+            ["Reranker", "XLM-RoBERTa cross-encoder"],
+            ["target_recall", str(TARGET_RECALL)],
+            ["n_search_values", "10, 20, 30, 50, 75, 100"],
+            ["k_values", "5, 10, 20"],
+            ["eval-k", "10"],
+            ["max_queries (smoke test)", str(EVAL_N_QUERIES)],
+            ["rerank_batch_size", "32"],
         ],
     )
 
-    doc.add_heading("3.3. Pipeline đánh giá E5 + Reranker", level=2)
+    doc.add_heading("4. Kết quả đánh giá retrieval", level=1)
+
+    doc.add_heading("4.1. So sánh Bi-encoder vs Reranker @10", level=2)
     doc.add_paragraph(
-        "Giai đoạn 1: E5 bi-encoder encode query và corpus → cosine similarity → lấy top-n ứng viên.\n"
-        "Giai đoạn 2: Cross-encoder reranker chấm điểm cặp (query, passage) → xếp hạng lại → top-k.\n"
-        "Script: evaluate_reranker_pipeline.py. Đánh giá trên toàn bộ ecommerce.csv: "
-        "corpus 5000 SP, query = title, ground truth = product_id cùng dòng."
+        f"P@10={BI_ENCODER['P@10']} | R@10={BI_ENCODER['R@10']} | F1@10={BI_ENCODER['F1@10']} | "
+        f"MRR@10={BI_ENCODER['MRR@10']} | NDCG@10={BI_ENCODER['NDCG@10']}"
+    )
+    doc.add_paragraph(
+        "Sau rerank (n=10): metric trùng bi-encoder — reranker không cải thiện thêm "
+        "vì E5 đã đạt Recall/MRR/NDCG ≈ 1,0 trên mẫu này."
     )
 
-    doc.add_heading("4. Kết quả thực nghiệm (Colab T4)", level=1)
-    doc.add_paragraph("Bi-encoder only @10:")
+    doc.add_heading("4.2. Chọn n theo Recall@n", level=2)
+    recall_rows = [[str(n), f"{v:.4f}".replace(".", ",")] for n, v in RECALL_BY_N.items()]
+    add_table(doc, ["n", f"Recall@n"], recall_rows)
     doc.add_paragraph(
-        "P@10=0,1114 | R@10=0,9979 | F1@10=0,2005 | MRR@10=0,9902 | NDCG@10=0,9926 | n_queries=4350"
-    )
-    doc.add_paragraph("+ Reranker (n=20) @10:")
-    doc.add_paragraph("P@10=0,1115 | R@10=0,9986 | F1@10=0,2006")
-    doc.add_paragraph(
-        "Reranker với n=20 chưa cải thiện rõ P/R/F1 so với chỉ bi-encoder; "
-        "bi-encoder đã đạt MRR/NDCG rất cao (≈0,99)."
+        f"→ selected_n = {SELECTED_N} (nhỏ nhất đạt target). "
+        f"Rerank {EVAL_N_QUERIES} × {SELECTED_N} = {RERANK_PAIRS} cặp (thay vì 50.000 nếu rerank n=100)."
     )
 
-    doc.add_heading("5. Giải thích: Vì sao Precision@10 chỉ ~10%?", level=1)
-
-    doc.add_heading("5.1. Giới hạn toán học", level=2)
-    doc.add_paragraph(
-        "Cách đánh giá: mỗi query (title) có đúng 1 product_id là ground truth. "
-        "Precision@10 = (số hit trong top-10) / 10. "
-        "Nếu mỗi query chỉ có 1 SP đúng thì P@10 tối đa = 1/10 = 10%. "
-        "Kết quả 11,14% đã gần trần lý thuyết — model hoạt động tốt, không phải chỉ đúng 10%."
-    )
-
-    doc.add_heading("5.2. Số liệu từ ecommerce.csv", level=2)
+    doc.add_heading("4.3. Tìm k tối ưu (grid tại n=10)", level=2)
     add_table(
         doc,
-        ["Thống kê", "Giá trị"],
+        ["k", "P", "R", "F1", "MRR", "NDCG"],
+        K_GRID,
+    )
+    doc.add_paragraph(
+        f"k tối ưu theo NDCG: k={OPT_K_NDCG} (P@5=0,20, F1@5=0,33, NDCG≈0,999). "
+        "Báo cáo chính @10: k=10."
+    )
+
+    doc.add_heading("5. Ngưỡng tối ưu trước triển khai", level=1)
+    doc.add_paragraph(
+        "Phân tích trên cặp (query, passage) positive/negative: "
+        f"{THRESHOLD['n_pairs']} cặp ({THRESHOLD['n_pos']} pos, {THRESHOLD['n_neg']} neg). "
+        "Mỗi query: 1 positive (searchable_text đúng) + 3 negative ngẫu nhiên."
+    )
+    add_table(
+        doc,
+        ["Loại ngưỡng", "τ", "FPR", "FNR", "Error rate"],
         [
-            ["Tổng sản phẩm", "5000"],
+            ["EER (FPR ≈ FNR)", f"{THRESHOLD['tau_eer']:.4f}", "0,0000", "0,0000", "0,0000"],
+            ["Min error rate", f"{THRESHOLD['tau_min_err']:.4f}", "0,0000", "0,0000", "0,0000"],
+        ],
+    )
+    doc.add_paragraph(
+        f"Triển khai: lọc kết quả reranker với score ≥ {THRESHOLD['tau_eer']:.3f}. "
+        "Vùng τ ∈ [0,01; 0,99] đều cho error rate = 0 trên tập mẫu này. "
+        "Lưu ý: negative ngẫu nhiên dễ tách hơn negative cứng từ top-n E5."
+    )
+
+    doc.add_heading("6. Giải thích Precision@10", level=1)
+    doc.add_paragraph(
+        "Mỗi query có 1 nhãn đúng, Precision@10 = hit/10 ≤ 10%. "
+        "Kết quả ~10% là gần trần lý thuyết khi Recall = 100%. "
+        "Nên báo cáo thêm MRR, NDCG, F1 và so sánh trước/sau rerank."
+    )
+    add_table(
+        doc,
+        ["Thống kê corpus", "Giá trị"],
+        [
+            ["Tổng SP", "5000"],
             ["Title unique", "4350"],
-            ["Dòng trùng title", "650"],
-            ["Query đánh giá", "4350"],
-            ["Query 1 nhãn", "4123 (94,8%)"],
-            ["Query nhiều nhãn (cùng title, khác SKU)", "227"],
+            ["Query đánh giá (full)", "4350"],
+            ["Query smoke test", str(EVAL_N_QUERIES)],
         ],
     )
 
-    doc.add_heading("5.3. Cách đọc kết quả", level=2)
-    add_table(
-        doc,
-        ["Chỉ số", "Ý nghĩa"],
-        [
-            ["Recall@10 ≈ 99,8%", "Gần như mọi query đều tìm được SP đúng trong top-10"],
-            ["Precision@10 ≈ 11%", "Top-10 có ~1,1 SP đúng nhãn / 10 vị trí (do định nghĩa metric)"],
-            ["MRR@10 ≈ 0,99", "SP đúng thường nằm rất cao (vị trí 1–2)"],
-        ],
-    )
-    doc.add_paragraph(
-        "Khuyến nghị trình bày GVHD: nhấn mạnh Recall, MRR, NDCG, F1 và so sánh trước/sau rerank; "
-        "không dùng P@10 đơn lẻ để kết luận model yếu. "
-        "Muốn P@10 phân biệt hơn: mở rộng tập nhãn (cùng danh mục = relevant) "
-        "hoặc dùng test_5000.jsonl với query tự nhiên."
-    )
-
-    doc.add_heading("6. Hạn chế và hướng phát triển", level=1)
+    doc.add_heading("7. Hạn chế", level=1)
     for item in [
-        "650 dòng trùng title → 227 query đa nhãn.",
-        "Metadata thưa (tags, size, color_vi).",
-        "Giá có outlier → cần làm sạch price_num.",
-        "Reranker chậm khi không có flash_attn; grid n lớn mất nhiều giờ.",
-        "P@10 bão hòa với setup 1 nhãn/query → ưu tiên báo cáo MRR/NDCG.",
+        f"Smoke test {EVAL_N_QUERIES} query — cần chạy MAX_QUERIES=None để chốt full 4350 query.",
+        "Reranker không cải thiện khi bi-encoder đã Recall/MRR ≈ 1.",
+        "Ngưỡng τ đo trên negative ngẫu nhiên — nên bổ sung hard negative từ top-n E5.",
+        "Metadata thưa (tags, brand); giá có outlier.",
     ]:
         doc.add_paragraph(item, style="List Bullet")
 
-    doc.add_heading("7. Lệnh tái lập thí nghiệm", level=1)
+    doc.add_heading("8. Tái lập", level=1)
     doc.add_paragraph(
-        "python embedding_project/scripts/evaluate_reranker_pipeline.py "
-        "--embedding-model embedding_project/models/e5_base_finetuned_5000 "
-        "--reranker-model embedding_project/models/reranker "
-        "--eval-csv embedding_project/data/ecommerce.csv "
-        "--query-col title --n-values 20 50 100 --k-values 5 10 20"
+        "Notebook: embedding_project/notebooks/evaluate_e5_reranker_5000_colab.ipynb\n"
+        "Script: embedding_project/scripts/evaluate_reranker_pipeline.py"
     )
-    doc.add_paragraph("Kết quả JSON: embedding_project/outputs/evaluation/reranker_pipeline_eval.json")
+    doc.add_paragraph(
+        "Eval: --target-recall 0.98 --n-search-values 10 20 30 50 75 100 --skip-threshold\n"
+        "Ngưỡng: run_threshold_only (cell 5 trong notebook)"
+    )
+
+    doc.add_heading("Phụ lục — Danh mục hình", level=1)
+    figures = [
+        ("Hình 1", "source_top", "c__llm_provider_benchmarking_source_top.png"),
+        ("Hình 2", "category_top", "category_top.png"),
+        ("Hình 3", "category_depth", "category_depth.png"),
+        ("Hình 4", "brand_top", "brand_top.png"),
+        ("Hình 5", "missing_values", "c__llm_provider_benchmarking_missing_values.png"),
+        ("Hình 6–7", "reviews_count", "reviews_count_hist/box"),
+        ("Hình 8–9", "rating", "rating_hist/box"),
+        ("Hình 10–11", "price", "price_num_hist/box"),
+        ("Hình 12", "rating_vs_reviews", "c__llm_provider_benchmarking_rating_vs_reviews.png"),
+    ]
+    add_table(doc, ["STT", "Nội dung", "File"], [[a, b, c] for a, b, c in figures])
 
     REPORT_OUT.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(REPORT_OUT))

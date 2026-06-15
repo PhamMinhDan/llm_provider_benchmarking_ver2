@@ -1,0 +1,201 @@
+query_id,query
+1,điện thoại samsung
+2,điện thoại android
+3,smartphone pin trâu
+4,điện thoại chụp ảnh đẹp
+5,điện thoại màn hình lớn
+6,điện thoại dưới 10 triệu
+7,điện thoại chơi game
+8,smartphone ram cao
+9,điện thoại 5g
+10,điện thoại cho sinh viên
+11,ốp lưng điện thoại
+12,cáp sạc điện thoại
+13,ống kính điện thoại
+14,phụ kiện smartphone
+15,sạc nhanh điện thoại
+16,vỏ máy tính bảng
+17,cáp usb c
+18,bộ chuyển đổi điện thoại
+19,phụ kiện ipad
+20,kính camera điện thoại
+21,áo thun nam
+22,áo hoodie nam
+23,áo thể thao
+24,áo thi đấu bóng đá
+25,áo nữ big size
+26,quần áo tập gym
+27,áo khoác mùa đông
+28,áo mặc hàng ngày
+29,đồ thể thao nam
+30,đồ thể thao nữ
+31,áo thun cotton
+32,áo jersey
+33,áo bóng đá
+34,áo rộng nữ
+35,áo nam form rộng
+36,đồ chạy bộ
+37,quần áo ngoài trời
+38,áo tay ngắn
+39,áo mặc đi chơi
+40,áo cho người mập
+41,rèm cửa phòng ngủ
+42,rèm chống nắng
+43,ga trải giường
+44,vỏ gối
+45,đồ trang trí nhà
+46,sơn tường nội thất
+47,sơn lót
+48,rèm cửa sổ
+49,chăn ga mát
+50,đồ decor phòng khách
+51,xịt làm mát không khí
+52,thiết bị chăm sóc không khí
+53,đồ gia dụng
+54,đồ dùng phòng ngủ
+55,trang trí cửa sổ
+56,rèm cửa đẹp
+57,ga giường mùa hè
+58,đồ nội thất mềm
+59,sản phẩm gia đình
+60,đồ dùng nhà
+61,kem dưỡng ẩm mặt
+62,dưỡng da mặt
+63,bàn chải tóc
+64,lược chải tóc
+65,phụ kiện chăm sóc tóc
+66,sản phẩm chăm sóc da
+67,kem dưỡng da
+68,dưỡng ẩm cho da khô
+69,chăm sóc tóc nữ
+70,dụng cụ làm tóc
+71,kẹp tóc
+72,phụ kiện tóc
+73,bàn chải massage da đầu
+74,đồ làm đẹp
+75,mỹ phẩm dưỡng da
+76,kem mặt
+77,chăm sóc cá nhân
+78,dưỡng da hằng ngày
+79,sản phẩm tóc
+80,phụ kiện làm đẹp
+81,máy chiếu mini
+82,máy chiếu gia đình
+83,smart tv
+84,tivi thông minh
+85,máy chiếu văn phòng
+86,thiết bị trình chiếu
+87,tivi 4k
+88,màn hình giải trí
+89,máy chiếu học tập
+90,android tv
+91,thiết bị video
+92,tivi màn hình lớn
+93,máy chiếu phim
+94,thiết bị điện tử gia đình
+95,tivi thông minh giá tốt
+96,máy chiếu led
+97,máy chiếu di động
+98,smart television
+99,truyền hình gia đình
+100,thiết bị giải trí
+101,vali du lịch
+102,vali trẻ em
+103,túi du lịch
+104,hành lý kéo
+105,vali cỡ lớn
+106,vali cabin
+107,túi cho bé
+108,phụ kiện du lịch
+109,vali bánh xe
+110,đồ dùng du lịch
+111,vali chống nước
+112,túi hành lý
+113,vali nhẹ
+114,vali đi công tác
+115,vali gia đình
+116,túi xách du lịch
+117,đồ du lịch
+118,vali bền
+119,túi trẻ em
+120,hành lý xách tay
+121,mình cần điện thoại pin lâu
+122,có loại áo thể thao nào đẹp không
+123,tìm vali cho chuyến đi 1 tuần
+124,tivi nào phù hợp phòng khách
+125,máy chiếu xem phim tại nhà
+126,kem dưỡng da cho da khô
+127,cáp sạc điện thoại bền
+128,ốp lưng máy tính bảng
+129,rèm cửa chống nắng phòng ngủ
+130,ga giường mát mùa hè
+131,áo thun nam mặc hằng ngày
+132,áo bóng đá tập luyện
+133,lược chải tóc chống rối
+134,đồ chăm sóc tóc
+135,smartphone giá rẻ
+136,điện thoại chơi game tốt
+137,vali kéo nhẹ
+138,đồ gia dụng cho gia đình
+139,máy chiếu học online
+140,tivi 4k giá tốt
+141,ga trải giường cho gia đình
+142,phụ kiện làm đẹp bán chạy
+143,rèm cửa đẹp cho gia đình
+144,túi xách du lịch bán chạy
+145,kem dưỡng ẩm mặt cho sinh viên
+146,tivi thông minh cho gia đình
+147,đồ chạy bộ chất lượng cao
+148,đồ decor phòng khách chất lượng cao
+149,thiết bị điện tử gia đình giá tốt
+150,vali chống nước cho gia đình
+151,rèm chống nắng bán chạy
+152,đồ trang trí nhà bán chạy
+153,áo rộng nữ cho sinh viên
+154,sạc nhanh điện thoại bán chạy
+155,bàn chải massage da đầu chất lượng cao
+156,thiết bị điện tử gia đình cho gia đình
+157,máy chiếu mini bán chạy
+158,ống kính điện thoại chất lượng cao
+159,ống kính điện thoại giá tốt
+160,màn hình giải trí cho sinh viên
+161,smartphone pin trâu cho gia đình
+162,dưỡng da mặt cho sinh viên
+163,kem dưỡng da cho gia đình
+164,ga giường mùa hè giá tốt
+165,rèm cửa sổ cho gia đình
+166,thiết bị video cho gia đình
+167,smartphone pin trâu cho sinh viên
+168,máy chiếu led cho sinh viên
+169,smartphone ram cao giá tốt
+170,cáp sạc điện thoại chất lượng cao
+171,đồ decor phòng khách bán chạy
+172,áo thi đấu bóng đá giá tốt
+173,chăm sóc tóc nữ cho sinh viên
+174,quần áo tập gym cho sinh viên
+175,android tv bán chạy
+176,tivi thông minh giá tốt chất lượng cao
+177,chăm sóc tóc nữ chất lượng cao
+178,rèm chống nắng bán chạy
+179,vỏ máy tính bảng chất lượng cao
+180,tivi màn hình lớn chất lượng cao
+181,túi xách du lịch giá tốt
+182,túi trẻ em cho gia đình
+183,dưỡng da mặt cho sinh viên
+184,đồ nội thất mềm chất lượng cao
+185,áo thun cotton cho sinh viên
+186,điện thoại màn hình lớn cho sinh viên
+187,chăn ga mát cho gia đình
+188,túi du lịch giá tốt
+189,rèm cửa sổ cho sinh viên
+190,mỹ phẩm dưỡng da giá tốt
+191,sản phẩm chăm sóc da bán chạy
+192,kính camera điện thoại bán chạy
+193,rèm cửa đẹp giá tốt
+194,rèm cửa đẹp cho sinh viên
+195,túi trẻ em chất lượng cao
+196,tivi 4k cho sinh viên
+197,ống kính điện thoại giá tốt
+198,chăm sóc cá nhân giá tốt
+199,vali bánh xe giá tốt
+200,sản phẩm chăm sóc da cho sinh viên
