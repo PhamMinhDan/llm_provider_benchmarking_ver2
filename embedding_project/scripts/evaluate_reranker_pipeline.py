@@ -1,14 +1,16 @@
-"""Đánh giá pipeline E5 bi-encoder + cross-encoder reranker trên corpus 5000 SP.
+"""Đánh giá pipeline E5 bi-encoder + cross-encoder reranker trên tập test.
 
-1. Precision@k, Recall@k, F1@k, MRR@k, NDCG@k (bi-encoder vs bi-encoder + reranker)
-2. Grid search n (retrieve) và k (final top-k)
-3. FPR, FNR, EER và ngưỡng tối ưu trên điểm reranker
+Corpus: ecommerce.csv (5000 SP). Query + nhãn: test jsonl (metadata.product_id).
 
-Ví dụ (đánh giá trên toàn bộ ecommerce.csv — 5000 SP):
+1. Precision@k, Recall@k, F1@k, MRR@k, NDCG@k (bi-encoder vs reranker)
+2. Chọn n theo Recall@n, grid k
+3. FPR, FNR, EER, ngưỡng τ (hard negative từ top-n E5)
+
+Ví dụ:
   python embedding_project/scripts/evaluate_reranker_pipeline.py \\
     --embedding-model embedding_project/models/e5_base_finetuned_5000 \\
     --reranker-model embedding_project/models/reranker \\
-    --eval-csv embedding_project/data/ecommerce.csv
+    --query-jsonl data/training/test_5000.jsonl
 """
 
 from __future__ import annotations
@@ -16,7 +18,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import re
 import sys
 from pathlib import Path
 
@@ -38,21 +39,16 @@ def load_jsonl(path: Path) -> list[dict]:
     return rows
 
 
-def build_labels_from_jsonl(rows: list[dict]) -> dict[str, set[str]]:
-    labels: dict[str, set[str]] = {}
-    for row in rows:
-        query = row.get("query")
-        pid = str(row.get("metadata", {}).get("product_id", "")).strip()
-        if query and pid:
-            labels.setdefault(query, set()).add(pid)
-    return labels
+def load_test_queries(
+    jsonl_paths: list[Path],
+    products_df: pd.DataFrame,
+) -> tuple[list[str], dict[str, set[str]], list[dict], str]:
+    corpus_ids = set(products_df["product_id"].astype(str))
+    rows: list[dict] = []
+    for path in jsonl_paths:
+        if path.is_file():
+            rows.extend(load_jsonl(path))
 
-
-def build_eval_from_jsonl(
-    rows: list[dict],
-    corpus_ids: set[str],
-) -> tuple[list[str], dict[str, set[str]]]:
-    """Query từ jsonl (vd. test_5000), nhãn = product_id trong metadata."""
     labels: dict[str, set[str]] = {}
     query_order: list[str] = []
     for row in rows:
@@ -63,103 +59,9 @@ def build_eval_from_jsonl(
         if q not in labels:
             query_order.append(q)
         labels.setdefault(q, set()).add(pid)
-    return query_order, labels
 
-
-def tokenize_query(text: str, min_len: int = 2) -> list[str]:
-    return [t for t in re.findall(r"[\w]+", text.lower(), flags=re.UNICODE) if len(t) >= min_len]
-
-
-def build_eval_from_benchmark_csv(
-    benchmark_path: Path,
-    products_df: pd.DataFrame,
-    min_token_len: int = 2,
-) -> tuple[list[str], dict[str, set[str]], int]:
-    """Gán nhãn yếu: SP relevant nếu mọi token query (độ dài >= min) xuất hiện trong searchable_text."""
-    qdf = pd.read_csv(benchmark_path)
-    corpus_texts = products_df["searchable_text"].astype(str).str.lower()
-    product_ids = products_df["product_id"].astype(str)
-
-    labels: dict[str, set[str]] = {}
-    query_order: list[str] = []
-    skipped = 0
-
-    for _, row in qdf.iterrows():
-        q = str(row.get("query", "")).strip()
-        if not q:
-            skipped += 1
-            continue
-        tokens = tokenize_query(q, min_token_len)
-        if not tokens:
-            skipped += 1
-            continue
-        mask = pd.Series(True, index=products_df.index)
-        for tok in tokens:
-            mask &= corpus_texts.str.contains(re.escape(tok), regex=True, na=False)
-        rel = set(product_ids[mask])
-        if not rel:
-            skipped += 1
-            continue
-        if q not in labels:
-            query_order.append(q)
-        labels.setdefault(q, set()).update(rel)
-
-    return query_order, labels, skipped
-
-
-def load_eval_queries(
-    args: argparse.Namespace,
-    products_df: pd.DataFrame,
-) -> tuple[list[str], dict[str, set[str]], str, list[dict] | None, dict]:
-    extra: dict = {}
-    eco_ids = set(products_df["product_id"].astype(str))
-    if args.benchmark_queries:
-        query_texts, labels, skipped = build_eval_from_benchmark_csv(
-            args.benchmark_queries,
-            products_df,
-            min_token_len=args.benchmark_min_token_len,
-        )
-        extra["benchmark_skipped_queries"] = skipped
-        extra["labeling"] = (
-            f"token_match_all(min_len={args.benchmark_min_token_len}) in searchable_text"
-        )
-        eval_source = f"benchmark:{args.benchmark_queries.name}"
-        return query_texts, labels, eval_source, None, extra
-    if args.query_jsonl:
-        jsonl_rows = load_query_jsonl_files(args.query_jsonl)
-        query_texts, labels = build_eval_from_jsonl(jsonl_rows, eco_ids)
-        eval_source = "jsonl:" + ",".join(p.name for p in args.query_jsonl)
-        return query_texts, labels, eval_source, jsonl_rows, extra
-    query_texts, labels = build_eval_from_ecommerce(products_df, query_col=args.query_col)
-    return query_texts, labels, f"ecommerce.csv[{args.query_col}]", None, extra
-
-
-def build_eval_from_ecommerce(
-    products_df: pd.DataFrame,
-    query_col: str = "title",
-) -> tuple[list[str], dict[str, set[str]]]:
-    """Query = cột title (hoặc query_col), ground truth = product_id cùng dòng."""
-    labels: dict[str, set[str]] = {}
-    query_order: list[str] = []
-
-    for _, row in products_df.iterrows():
-        query = str(row.get(query_col, "")).strip()
-        pid = str(row.get("product_id", "")).strip()
-        if not query or not pid:
-            continue
-        if query not in labels:
-            query_order.append(query)
-        labels.setdefault(query, set()).add(pid)
-
-    return query_order, labels
-
-
-def load_query_jsonl_files(paths: list[Path]) -> list[dict]:
-    rows: list[dict] = []
-    for path in paths:
-        if path.is_file():
-            rows.extend(load_jsonl(path))
-    return rows
+    source = "jsonl:" + ",".join(p.name for p in jsonl_paths)
+    return query_order, labels, rows, source
 
 
 def normalize(vectors: np.ndarray) -> np.ndarray:
@@ -174,6 +76,43 @@ def topk_indices(query_emb: np.ndarray, corpus_emb: np.ndarray, k: int) -> np.nd
     top_scores = scores[rows, idx]
     order = np.argsort(-top_scores, axis=1)
     return idx[rows, order]
+
+
+def encode_corpus_and_queries(
+    emb: SentenceTransformer,
+    corpus_texts: list[str],
+    query_texts: list[str],
+    batch_size: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    corpus_e5 = [f"passage: {t}" for t in corpus_texts]
+    queries_e5 = [f"query: {q}" for q in query_texts]
+    corpus_emb = normalize(
+        emb.encode(corpus_e5, batch_size=batch_size, show_progress_bar=True, convert_to_numpy=True)
+    )
+    query_emb = normalize(
+        emb.encode(queries_e5, batch_size=batch_size, show_progress_bar=True, convert_to_numpy=True)
+    )
+    return corpus_emb, query_emb
+
+
+def compute_bi_encoder_topn(
+    args: argparse.Namespace,
+    products_df: pd.DataFrame,
+    query_texts: list[str],
+    pool_n: int,
+) -> list[list[str]]:
+    product_ids = products_df["product_id"].astype(str).tolist()
+    corpus_texts = products_df["searchable_text"].astype(str).tolist()
+    pool_n = min(pool_n, len(product_ids))
+
+    LOGGER.info("Loading embedding model: %s", args.embedding_model)
+    emb = SentenceTransformer(str(args.embedding_model))
+    emb.max_seq_length = 512
+    corpus_emb, query_emb = encode_corpus_and_queries(
+        emb, corpus_texts, query_texts, args.encode_batch_size
+    )
+    topn_idx = topk_indices(query_emb, corpus_emb, k=pool_n)
+    return [[product_ids[i] for i in row] for row in topn_idx]
 
 
 def retrieval_metrics(
@@ -252,7 +191,6 @@ def build_rerank_score_cache(
     batch_size: int,
     device: str,
 ) -> list[dict[str, float]]:
-    """Chấm điểm reranker một lần; dùng lại cho mọi n <= len(candidates)."""
     pairs: list[tuple[str, str]] = []
     meta: list[tuple[int, str]] = []
     for qi, (q, pids) in enumerate(zip(queries, candidate_ids)):
@@ -283,82 +221,6 @@ def rerank_from_cache(
     return reranked
 
 
-def rerank_retrieved(
-    queries: list[str],
-    candidate_ids: list[list[str]],
-    id_to_text: dict[str, str],
-    reranker,
-    batch_size: int,
-    device: str,
-) -> list[list[str]]:
-    cache = build_rerank_score_cache(
-        queries, candidate_ids, id_to_text, reranker, batch_size, device
-    )
-    return rerank_from_cache(candidate_ids, cache)
-
-
-def build_threshold_dataset_from_ecommerce(
-    products_df: pd.DataFrame,
-    query_col: str = "title",
-    max_neg_per_query: int = 3,
-    seed: int = 42,
-) -> tuple[list[tuple[str, str]], np.ndarray]:
-    rng = np.random.default_rng(seed)
-    pairs: list[tuple[str, str]] = []
-    labels: list[int] = []
-
-    df = products_df.dropna(subset=["product_id", "searchable_text", query_col]).drop_duplicates("product_id")
-    pids = df["product_id"].astype(str).tolist()
-    id_to_text = dict(zip(pids, df["searchable_text"].astype(str)))
-
-    for _, row in df.iterrows():
-        query = str(row[query_col]).strip()
-        pid = str(row["product_id"]).strip()
-        positive = str(row["searchable_text"]).strip()
-        if not query or not positive:
-            continue
-        pairs.append((query, positive))
-        labels.append(1)
-
-        others = [p for p in pids if p != pid]
-        if not others:
-            continue
-        n_neg = min(max_neg_per_query, len(others))
-        for neg_pid in rng.choice(others, size=n_neg, replace=False):
-            pairs.append((query, id_to_text[neg_pid]))
-            labels.append(0)
-
-    return pairs, np.asarray(labels, dtype=np.int32)
-
-
-def build_threshold_dataset_from_jsonl(
-    eval_rows: list[dict],
-    id_to_text: dict[str, str],
-    max_neg_per_query: int = 3,
-) -> tuple[list[tuple[str, str]], np.ndarray]:
-    pairs: list[tuple[str, str]] = []
-    labels: list[int] = []
-
-    for row in eval_rows:
-        q = row.get("query")
-        pos = row.get("positive")
-        if not q or not pos:
-            continue
-        pairs.append((q, pos))
-        labels.append(1)
-
-        negs: list[str] = []
-        for key in ("hard_negative", "negative"):
-            for t in row.get(key) or []:
-                if t and t not in negs:
-                    negs.append(t)
-        for t in negs[:max_neg_per_query]:
-            pairs.append((q, t))
-            labels.append(0)
-
-    return pairs, np.asarray(labels, dtype=np.int32)
-
-
 def build_threshold_dataset_from_retrieval(
     query_texts: list[str],
     labels: dict[str, set[str]],
@@ -367,7 +229,6 @@ def build_threshold_dataset_from_retrieval(
     max_neg_per_query: int = 5,
     n_pool: int = 30,
 ) -> tuple[list[tuple[str, str]], np.ndarray]:
-    """Positive = SP đúng (ưu tiên trong top-n E5); negative = ứng viên E5 hard không thuộc nhãn."""
     pairs: list[tuple[str, str]] = []
     label_arr: list[int] = []
 
@@ -395,40 +256,6 @@ def build_threshold_dataset_from_retrieval(
             if neg_text:
                 pairs.append((q, neg_text))
                 label_arr.append(0)
-
-    return pairs, np.asarray(label_arr, dtype=np.int32)
-
-
-def build_threshold_dataset_from_labeled_random_neg(
-    query_texts: list[str],
-    labels: dict[str, set[str]],
-    id_to_text: dict[str, str],
-    max_neg_per_query: int = 3,
-    seed: int = 42,
-) -> tuple[list[tuple[str, str]], np.ndarray]:
-    rng = np.random.default_rng(seed)
-    all_pids = list(id_to_text.keys())
-    pairs: list[tuple[str, str]] = []
-    label_arr: list[int] = []
-
-    for q in query_texts:
-        rel = labels.get(q, set())
-        if not rel:
-            continue
-        pos_pid = next(iter(rel))
-        pos_text = id_to_text.get(pos_pid, "")
-        if not pos_text:
-            continue
-        pairs.append((q, pos_text))
-        label_arr.append(1)
-
-        others = [p for p in all_pids if p not in rel]
-        if not others:
-            continue
-        n_neg = min(max_neg_per_query, len(others))
-        for neg_pid in rng.choice(others, size=n_neg, replace=False):
-            pairs.append((q, id_to_text[neg_pid]))
-            label_arr.append(0)
 
     return pairs, np.asarray(label_arr, dtype=np.int32)
 
@@ -500,7 +327,7 @@ def threshold_analysis(
 
 def parse_args() -> argparse.Namespace:
     root = Path(__file__).resolve().parents[2]
-    parser = argparse.ArgumentParser(description="Evaluate E5 + reranker pipeline.")
+    parser = argparse.ArgumentParser(description="Evaluate E5 + reranker on test jsonl.")
     parser.add_argument(
         "--embedding-model",
         type=Path,
@@ -515,53 +342,40 @@ def parse_args() -> argparse.Namespace:
         "--eval-csv",
         type=Path,
         default=root / "embedding_project/data/ecommerce.csv",
-        help="CSV đánh giá + corpus (mặc định: toàn bộ 5000 SP)",
-    )
-    parser.add_argument(
-        "--query-col",
-        default="title",
-        help="Cột dùng làm query khi đánh giá từ CSV (mặc định: title)",
+        help="Corpus sản phẩm (searchable_text)",
     )
     parser.add_argument(
         "--query-jsonl",
         type=Path,
-        nargs="*",
-        default=None,
-        help="Query từ jsonl (vd. data/training/test_5000.jsonl) — đánh giá thực tế hơn title=query",
+        nargs="+",
+        default=[root / "data/training/test_5000.jsonl"],
+        help="Tập test (query + metadata.product_id)",
     )
     parser.add_argument(
-        "--benchmark-queries",
+        "--output",
         type=Path,
-        default=None,
-        help="CSV benchmark (query_id, query); nhãn = token match trong searchable_text",
+        default=root / "embedding_project/outputs/evaluation/reranker_pipeline_eval_test.json",
     )
-    parser.add_argument(
-        "--benchmark-min-token-len",
-        type=int,
-        default=2,
-        help="Độ dài tối thiểu mỗi token khi gán nhãn từ benchmark CSV",
-    )
-    parser.add_argument("--output", type=Path, default=root / "embedding_project/outputs/evaluation/reranker_pipeline_eval.json")
-    parser.add_argument("--n-values", type=int, nargs="+", default=[20, 50, 100, 200, 500])
+    parser.add_argument("--n-values", type=int, nargs="+", default=[10, 20, 30, 50, 75, 100])
     parser.add_argument("--k-values", type=int, nargs="+", default=[5, 10, 20])
     parser.add_argument("--eval-k", type=int, default=10, help="k báo cáo chính P/R/F1")
     parser.add_argument(
         "--best-metric",
         choices=["F1", "MRR", "NDCG"],
         default="NDCG",
-        help="Metric dùng để chọn cấu hình tốt nhất tại eval-k",
+        help="Metric chọn cấu hình tốt nhất tại eval-k",
     )
     parser.add_argument(
         "--target-recall",
         type=float,
-        default=None,
-        help="Nếu đặt, tự chọn n nhỏ nhất sao cho Recall@n >= ngưỡng này và chỉ rerank tới n cần thiết",
+        default=0.95,
+        help="Chọn n nhỏ nhất sao cho Recall@n >= ngưỡng này",
     )
     parser.add_argument(
         "--n-search-values",
         type=int,
         nargs="+",
-        default=[10, 20, 50, 100, 200, 500],
+        default=[10, 20, 30, 50, 75, 100],
         help="Các n dùng để dò Recall trước khi chốt n",
     )
     parser.add_argument("--encode-batch-size", type=int, default=128)
@@ -571,29 +385,29 @@ def parse_args() -> argparse.Namespace:
         "--grid-max-queries",
         type=int,
         default=None,
-        help="Chỉ dùng N query đầu cho grid n×k (nhanh hơn; metric báo cáo vẫn full)",
+        help="Chỉ dùng N query đầu cho grid k (metric báo cáo vẫn full)",
     )
     parser.add_argument(
         "--skip-threshold",
         action="store_true",
-        help="Bỏ phân tích FPR/FNR/EER (tiết kiệm thời gian)",
+        help="Bỏ phân tích FPR/FNR/EER trong lần chạy eval chính",
     )
     parser.add_argument(
         "--threshold-only",
         action="store_true",
-        help="Chỉ chạy phân tích ngưỡng reranker (không encode E5 / không grid n×k)",
+        help="Chỉ chạy phân tích ngưỡng reranker",
     )
     parser.add_argument(
         "--threshold-output",
         type=Path,
         default=None,
-        help="File JSON ngưỡng (mặc định: cùng thư mục output, tên reranker_threshold.json)",
+        help="File JSON ngưỡng (mặc định: reranker_threshold_test.json)",
     )
     parser.add_argument(
         "--max-neg-per-query",
         type=int,
         default=3,
-        help="Số negative mẫu mỗi query cho phân tích ngưỡng",
+        help="Số hard negative mỗi query cho phân tích ngưỡng",
     )
     parser.add_argument("--device", default=None)
     return parser.parse_args()
@@ -602,55 +416,22 @@ def parse_args() -> argparse.Namespace:
 def run_threshold_analysis(
     args: argparse.Namespace,
     device: str,
-    products_df: pd.DataFrame,
     query_texts: list[str],
     labels: dict[str, set[str]],
-    jsonl_rows: list[dict] | None = None,
-    bi_encoder_topn: list[list[str]] | None = None,
-    id_to_text: dict[str, str] | None = None,
+    bi_encoder_topn: list[list[str]],
+    id_to_text: dict[str, str],
 ) -> dict:
     LOGGER.info("Loading reranker: %s", args.reranker_model)
     reranker = load_reranker(args.reranker_model, device)
 
-    LOGGER.info("Threshold analysis on query-passage pairs (%d queries)...", len(query_texts))
-    if bi_encoder_topn is not None and id_to_text is not None:
-        LOGGER.info("Dùng hard negative từ top-n E5 (retrieval).")
-        thr_pairs, thr_labels = build_threshold_dataset_from_retrieval(
-            query_texts,
-            labels,
-            bi_encoder_topn,
-            id_to_text,
-            max_neg_per_query=args.max_neg_per_query,
-        )
-    elif args.query_jsonl and jsonl_rows is not None:
-        thr_rows = [r for r in jsonl_rows if r.get("query") in set(query_texts)]
-        if id_to_text is None:
-            id_to_text = dict(
-                zip(
-                    products_df["product_id"].astype(str),
-                    products_df["searchable_text"].astype(str),
-                )
-            )
-        thr_pairs, thr_labels = build_threshold_dataset_from_jsonl(thr_rows, id_to_text)
-    elif args.benchmark_queries:
-        if id_to_text is None:
-            id_to_text = dict(
-                zip(
-                    products_df["product_id"].astype(str),
-                    products_df["searchable_text"].astype(str),
-                )
-            )
-        thr_pairs, thr_labels = build_threshold_dataset_from_labeled_random_neg(
-            query_texts, labels, id_to_text, max_neg_per_query=args.max_neg_per_query
-        )
-    else:
-        sub_df = products_df[products_df[args.query_col].astype(str).str.strip().isin(query_texts)]
-        thr_pairs, thr_labels = build_threshold_dataset_from_ecommerce(
-            sub_df,
-            query_col=args.query_col,
-            max_neg_per_query=args.max_neg_per_query,
-        )
-
+    LOGGER.info("Threshold analysis (%d queries, hard neg từ E5 top-n)...", len(query_texts))
+    thr_pairs, thr_labels = build_threshold_dataset_from_retrieval(
+        query_texts,
+        labels,
+        bi_encoder_topn,
+        id_to_text,
+        max_neg_per_query=args.max_neg_per_query,
+    )
     thr_scores = score_pairs(reranker, thr_pairs, args.rerank_batch_size, device)
     thr_result = threshold_analysis(thr_scores, thr_labels)
     LOGGER.info(
@@ -664,7 +445,6 @@ def run_threshold_analysis(
     return {
         "reranker_model": str(args.reranker_model),
         "eval_csv": str(args.eval_csv),
-        "query_col": args.query_col,
         "n_eval_queries": len(query_texts),
         "max_neg_per_query": args.max_neg_per_query,
         "n_pairs": thr_result["n_pairs"],
@@ -687,24 +467,19 @@ def run_threshold_only(args: argparse.Namespace, device: str) -> None:
     products_df = pd.read_csv(args.eval_csv)
     products_df = products_df.dropna(subset=["product_id", "searchable_text"]).drop_duplicates("product_id")
 
-    jsonl_rows: list[dict] | None = None
-    query_texts, labels, eval_source, jsonl_rows, eval_extra = load_eval_queries(args, products_df)
-
+    query_texts, labels, _jsonl_rows, eval_source = load_test_queries(args.query_jsonl, products_df)
     if args.max_queries:
         query_texts = query_texts[: args.max_queries]
         labels = {q: labels[q] for q in query_texts}
 
-    id_to_text = dict(
-        zip(
-            products_df["product_id"].astype(str),
-            products_df["searchable_text"].astype(str),
-        )
-    )
-    result = run_threshold_analysis(
-        args, device, products_df, query_texts, labels, jsonl_rows, id_to_text=id_to_text
-    )
-    result.update(eval_extra)
-    out = args.threshold_output or (args.output.parent / "reranker_threshold.json")
+    product_ids = products_df["product_id"].astype(str).tolist()
+    id_to_text = dict(zip(product_ids, products_df["searchable_text"].astype(str)))
+    pool_n = max(args.n_search_values) if args.n_search_values else 30
+    bi_encoder_topn = compute_bi_encoder_topn(args, products_df, query_texts, pool_n)
+
+    result = run_threshold_analysis(args, device, query_texts, labels, bi_encoder_topn, id_to_text)
+    result["eval_source"] = eval_source
+    out = args.threshold_output or (args.output.parent / "reranker_threshold_test.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     LOGGER.info("Saved threshold analysis: %s", out)
@@ -724,46 +499,23 @@ def main() -> None:
     products_df = pd.read_csv(args.eval_csv)
     products_df = products_df.dropna(subset=["product_id", "searchable_text"]).drop_duplicates("product_id")
 
-    query_texts, labels, eval_source, jsonl_rows, eval_extra = load_eval_queries(args, products_df)
-
+    query_texts, labels, _jsonl_rows, eval_source = load_test_queries(args.query_jsonl, products_df)
     if args.max_queries:
         query_texts = query_texts[: args.max_queries]
         labels = {q: labels[q] for q in query_texts}
-    if eval_extra.get("benchmark_skipped_queries"):
-        LOGGER.info(
-            "Benchmark: bỏ %d query không gán được nhãn token-match.",
-            eval_extra["benchmark_skipped_queries"],
-        )
+
     LOGGER.info("Eval queries: %d | source: %s", len(query_texts), eval_source)
     product_ids = products_df["product_id"].astype(str).tolist()
     corpus_texts = products_df["searchable_text"].astype(str).tolist()
     id_to_text = dict(zip(product_ids, corpus_texts))
 
-    LOGGER.info("Loading embedding model: %s", args.embedding_model)
-    emb = SentenceTransformer(str(args.embedding_model))
-    emb.max_seq_length = 512
-
-    corpus_e5 = [f"passage: {t}" for t in corpus_texts]
-    queries_e5 = [f"query: {q}" for q in query_texts]
-
-    LOGGER.info("Encoding corpus (%d products)...", len(corpus_e5))
-    corpus_emb = normalize(
-        emb.encode(corpus_e5, batch_size=args.encode_batch_size, show_progress_bar=True, convert_to_numpy=True)
-    )
-    LOGGER.info("Encoding queries (%d)...", len(queries_e5))
-    query_emb = normalize(
-        emb.encode(queries_e5, batch_size=args.encode_batch_size, show_progress_bar=True, convert_to_numpy=True)
-    )
-
     max_n = max(args.n_values)
-    topn_idx = topk_indices(query_emb, corpus_emb, k=max_n)
-    bi_encoder_topn = [[product_ids[i] for i in row] for row in topn_idx]
+    bi_encoder_topn = compute_bi_encoder_topn(args, products_df, query_texts, max_n)
 
     eval_k = args.eval_k
     bi_metrics = retrieval_metrics(bi_encoder_topn, query_texts, labels, k=eval_k)
     LOGGER.info("Bi-encoder only @%d: %s", eval_k, bi_metrics)
 
-    # 1. Tìm n tối ưu trước bằng Recall@n, chưa load reranker
     n_search_values = sorted(set(n for n in args.n_search_values if n <= max_n))
     if not n_search_values:
         n_search_values = [max_n]
@@ -787,19 +539,16 @@ def main() -> None:
     LOGGER.info("Recall by n: %s", recall_by_n)
     LOGGER.info("Selected n = %d", selected_n)
 
-    # 2. Chỉ sau khi có selected_n mới load reranker
     LOGGER.info("Loading reranker: %s", args.reranker_model)
     reranker = load_reranker(args.reranker_model, device)
 
-    # 3. Chỉ rerank selected_n, không rerank max 100/500 nữa
-    max_n_eff = selected_n
-    search_rows = [row[:max_n_eff] for row in bi_encoder_topn]
+    search_rows = [row[:selected_n] for row in bi_encoder_topn]
     LOGGER.info(
         "Reranking tại selected_n=%d (%d queries × %d = %d cặp)...",
-        max_n_eff,
+        selected_n,
         len(query_texts),
-        max_n_eff,
-        max_n_eff * len(query_texts),
+        selected_n,
+        selected_n * len(query_texts),
     )
     score_cache = build_rerank_score_cache(
         query_texts,
@@ -809,7 +558,6 @@ def main() -> None:
         args.rerank_batch_size,
         device,
     )
-    LOGGER.info("Đã cache điểm reranker tại selected_n=%d.", selected_n)
 
     grid_query_texts = query_texts
     grid_labels = labels
@@ -821,38 +569,36 @@ def main() -> None:
         grid_labels = {q: labels[q] for q in grid_query_texts}
         grid_topn = bi_encoder_topn[:gq]
         grid_cache = score_cache[:gq]
-        LOGGER.info("Grid n×k trên %d/%d query (mẫu)", gq, len(query_texts))
+        LOGGER.info("Grid k trên %d/%d query (mẫu)", gq, len(query_texts))
 
     grid_results = []
     metric_key = {"F1": "F1", "MRR": "MRR", "NDCG": "NDCG"}[args.best_metric]
     best_score = -1.0
     best_nk: dict | None = None
 
-    for n in [selected_n]:
-        n_eff = min(n, max_n_eff)
-        cand_ids = [row[:n_eff] for row in grid_topn]
-        reranked_ids = rerank_from_cache(cand_ids, grid_cache)
-        for k in sorted(args.k_values):
-            if k > n_eff:
-                continue
-            m = retrieval_metrics(reranked_ids, grid_query_texts, grid_labels, k=k)
-            entry = {"n": n_eff, "k": k, **m}
-            grid_results.append(entry)
-            score_key = f"{metric_key}@{k}"
-            if m[score_key] > best_score:
-                best_score = m[score_key]
-                best_nk = entry
-            if k == eval_k:
-                LOGGER.info(
-                    "Reranker n=%d @%d: P=%.4f R=%.4f F1=%.4f MRR=%.4f NDCG=%.4f",
-                    n_eff,
-                    k,
-                    m[f"Precision@{k}"],
-                    m[f"Recall@{k}"],
-                    m[f"F1@{k}"],
-                    m[f"MRR@{k}"],
-                    m[f"NDCG@{k}"],
-                )
+    cand_ids = [row[:selected_n] for row in grid_topn]
+    reranked_ids = rerank_from_cache(cand_ids, grid_cache)
+    for k in sorted(args.k_values):
+        if k > selected_n:
+            continue
+        m = retrieval_metrics(reranked_ids, grid_query_texts, grid_labels, k=k)
+        entry = {"n": selected_n, "k": k, **m}
+        grid_results.append(entry)
+        score_key = f"{metric_key}@{k}"
+        if m[score_key] > best_score:
+            best_score = m[score_key]
+            best_nk = entry
+        if k == eval_k:
+            LOGGER.info(
+                "Reranker n=%d @%d: P=%.4f R=%.4f F1=%.4f MRR=%.4f NDCG=%.4f",
+                selected_n,
+                k,
+                m[f"Precision@{k}"],
+                m[f"Recall@{k}"],
+                m[f"F1@{k}"],
+                m[f"MRR@{k}"],
+                m[f"NDCG@{k}"],
+            )
 
     best_at_eval_k = max(
         (g for g in grid_results if g["k"] == eval_k),
@@ -860,15 +606,14 @@ def main() -> None:
         default=None,
     )
     if best_at_eval_k:
-        n_best = best_at_eval_k["n"]
         reranked_best = rerank_from_cache(
-            [row[:n_best] for row in bi_encoder_topn],
+            [row[:selected_n] for row in bi_encoder_topn],
             score_cache,
         )
         reranker_metrics = retrieval_metrics(reranked_best, query_texts, labels, k=eval_k)
         LOGGER.info(
             "Best n=%d @%d (full %d queries): P=%.4f R=%.4f F1=%.4f MRR=%.4f NDCG=%.4f",
-            n_best,
+            selected_n,
             eval_k,
             len(query_texts),
             reranker_metrics[f"Precision@{eval_k}"],
@@ -893,20 +638,13 @@ def main() -> None:
             "deployment_threshold": {},
         }
     else:
-        thr_block = run_threshold_analysis(
-            args,
-            device,
-            products_df,
-            query_texts,
-            labels,
-            jsonl_rows,
-            bi_encoder_topn=bi_encoder_topn,
-            id_to_text=id_to_text,
+        thr = run_threshold_analysis(
+            args, device, query_texts, labels, bi_encoder_topn, id_to_text
         )
         thr_block = {
-            "threshold_analysis": thr_block["threshold_analysis"],
-            "threshold_curve": thr_block["threshold_curve"],
-            "deployment_threshold": thr_block["deployment_threshold"],
+            "threshold_analysis": thr["threshold_analysis"],
+            "threshold_curve": thr["threshold_curve"],
+            "deployment_threshold": thr["deployment_threshold"],
         }
 
     result = {
@@ -914,17 +652,16 @@ def main() -> None:
         "reranker_model": str(args.reranker_model),
         "eval_csv": str(args.eval_csv),
         "eval_source": eval_source,
-        "eval_meta": eval_extra,
-        "query_col": args.query_col,
+        "query_jsonl": [str(p) for p in args.query_jsonl],
         "corpus_size": len(product_ids),
         "n_eval_queries": len(query_texts),
         "grid_max_queries": args.grid_max_queries,
-        "rerank_pairs_scored_once": max_n_eff * len(query_texts),
+        "rerank_pairs_scored_once": selected_n * len(query_texts),
         "selected_n": selected_n,
         "best_metric": args.best_metric,
         f"bi_encoder_only@{eval_k}": bi_metrics,
         f"reranker_best_n@{eval_k}": {
-            "n": best_at_eval_k["n"] if best_at_eval_k else None,
+            "n": selected_n,
             "metrics": reranker_metrics,
         },
         "grid_search_n_k": grid_results,
@@ -934,30 +671,25 @@ def main() -> None:
             "selected_n_by_target_recall": selected_n,
             "recall_by_n": recall_by_n,
         },
-        "alternative_metrics_summary": {
-            "primary_metric": f"Precision@{eval_k}",
-            "alternative_metrics": [f"Recall@{eval_k}", f"F1@{eval_k}", f"MRR@{eval_k}", f"NDCG@{eval_k}"],
-            "bi_encoder_only": {k: bi_metrics[k] for k in [f"Precision@{eval_k}", f"Recall@{eval_k}", f"F1@{eval_k}", f"MRR@{eval_k}", f"NDCG@{eval_k}"] if k in bi_metrics},
-            "reranker_best_n": {k: reranker_metrics.get(k) for k in [f"Precision@{eval_k}", f"Recall@{eval_k}", f"F1@{eval_k}", f"MRR@{eval_k}", f"NDCG@{eval_k}"]},
-        },
         **thr_block,
     }
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     LOGGER.info("Saved: %s", args.output)
-    print(json.dumps(
-        {
-            "bi_encoder": bi_metrics,
-            "reranker_best": reranker_metrics,
-            "alternative_metrics_summary": result["alternative_metrics_summary"],
-            "optimal_n_k": result["optimal_n_k"],
-            "threshold": result.get("threshold_analysis", {}),
-            "deployment_threshold": result.get("deployment_threshold", {}),
-        },
-        ensure_ascii=False,
-        indent=2,
-    ))
+    print(
+        json.dumps(
+            {
+                "bi_encoder": bi_metrics,
+                "reranker_best": reranker_metrics,
+                "optimal_n_k": result["optimal_n_k"],
+                "threshold": result.get("threshold_analysis", {}),
+                "deployment_threshold": result.get("deployment_threshold", {}),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":
