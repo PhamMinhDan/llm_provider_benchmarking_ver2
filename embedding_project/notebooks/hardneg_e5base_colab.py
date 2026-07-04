@@ -6,7 +6,7 @@ Sự khác biệt duy nhất với bản gốc:
   - QdrantClient trỏ vào URL HTTP công khai (đã định trong .env)
 """
 
-import os, json, time, re, logging, threading
+import os, json, time, re, logging, threading, codecs
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -22,11 +22,22 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(
 log = logging.getLogger("hardneg")
 
 # ---------------------------------------------------------------------------
+# Colab: set QDRANT credentials here hoặc dùng Colab Secrets
+# ---------------------------------------------------------------------------
+# Cách 1: Colab Secrets (khuyên dùng)
+# from google.colab import userdata
+# os.environ["QDRANT_API_KEY"] = userdata.get("QDRANT_API_KEY")
+
+# Cách 2: Set trực tiếp (thay bằng key thật của bạn)
+# os.environ["QDRANT_API_KEY"] = "your-qdrant-api-key-here"
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
 # Config (giữ nguyên như bản local)
 # ---------------------------------------------------------------------------
-CORPUS_CSV      = Path("/content/drive/MyDrive/DATN/data/Dataset - DATN.csv")
-QUERIES_JSONL   = Path("/content/drive/MyDrive/DATN/data/llm_queries_all.jsonl")
-OUT_JSONL       = Path("/content/drive/MyDrive/DATN/data/training_data.jsonl")
+CORPUS_CSV      = Path(os.getenv("CORPUS_CSV", "/content/drive/MyDrive/DATN/data/Dataset_DATN_28k.csv"))
+QUERIES_JSONL   = Path(os.getenv("QUERIES_JSONL", "/content/drive/MyDrive/DATN/data/llm_queries_all_28k.jsonl"))
+OUT_JSONL       = Path(os.getenv("OUT_JSONL", "/content/drive/MyDrive/DATN/data/training_data.jsonl"))
 
 QDRANT_URL      = os.getenv("QDRANT_URL", "http://qdrant.datn-nextgen-suggest.site")
 QDRANT_API_KEY  = os.getenv("QDRANT_API_KEY", None)
@@ -36,6 +47,7 @@ EMBED_DIM       = 768
 EMBED_BATCH     = 128                # tăng batch vì GPU
 EMBED_PREFIX    = "passage: "
 QUERY_PREFIX    = "query: "
+FORCE_RECREATE  = True               # True = xóa collection cũ và upsert lại (đúng dữ liệu)
 
 TOP_K           = 20
 MAX_HARD_NEG    = 5
@@ -68,8 +80,23 @@ class _RateLimiter:
 _limiter_1 = _RateLimiter(MIN_INTERVAL)
 _limiter_2 = _RateLimiter(MIN_INTERVAL)
 
-CLIENT_1 = OpenAI(base_url=NVIDIA_URL, api_key=os.environ["NVIDIA_API_KEY_1"])
-CLIENT_2 = OpenAI(base_url=NVIDIA_URL, api_key=os.environ["NVIDIA_API_KEY_2"])
+# Lazy init — gọi _get_client() bên trong hàm dùng, không phải lúc import
+CLIENT_1: OpenAI = None  # type: ignore[assignment]
+CLIENT_2: OpenAI = None  # type: ignore[assignment]
+
+
+def _get_client_1() -> OpenAI:
+    global CLIENT_1
+    if CLIENT_1 is None:
+        CLIENT_1 = OpenAI(base_url=NVIDIA_URL, api_key=os.environ["NVIDIA_API_KEY_1"])
+    return CLIENT_1
+
+
+def _get_client_2() -> OpenAI:
+    global CLIENT_2
+    if CLIENT_2 is None:
+        CLIENT_2 = OpenAI(base_url=NVIDIA_URL, api_key=os.environ["NVIDIA_API_KEY_2"])
+    return CLIENT_2
 
 # ---------------------------------------------------------------------------
 # Judge prompt & parsing (giữ nguyên)
@@ -114,15 +141,23 @@ def build_corpus(csv_path: Path) -> pd.DataFrame:
         if col in df.columns:
             df[col] = df[col].fillna("")
 
+    def _unescape_double_encoded(text: str) -> str:
+        if r"\u" not in text and r"\r" not in text:
+            return text
+        try:
+            return codecs.decode(text, "unicode_escape")
+        except Exception:
+            return text
+
     def _build(row):
-        parts = [str(row.get("product_name", "")).strip()]
-        desc = str(row.get("description", "")).strip()
+        parts = [_unescape_double_encoded(str(row.get("product_name", "")).strip())]
+        desc = _unescape_double_encoded(str(row.get("description", "")).strip())
         if desc:
             parts.append(desc[:300])
         cat = str(row.get("category_name", "")).strip()
         if cat:
             parts.append(f"Danh mục: {cat}")
-        brand = str(row.get("brand", "")).strip()
+        brand = _unescape_double_encoded(str(row.get("brand", "")).strip())
         if brand and brand.lower() not in ("nan", "no brand", "unknown", "-", ""):
             parts.append(f"Thương hiệu: {brand}")
         price = row.get("price")
@@ -142,6 +177,10 @@ def build_corpus(csv_path: Path) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 def embed_and_upsert(df: pd.DataFrame, model: SentenceTransformer, client: QdrantClient):
     existing = [c.name for c in client.get_collections().collections]
+    if FORCE_RECREATE and COLLECTION_NAME in existing:
+        client.delete_collection(COLLECTION_NAME)
+        log.info("Qdrant: đã xóa collection cũ (FORCE_RECREATE=True)")
+        existing = []
     if COLLECTION_NAME not in existing:
         client.create_collection(
             collection_name=COLLECTION_NAME,
@@ -170,9 +209,10 @@ def embed_and_upsert(df: pd.DataFrame, model: SentenceTransformer, client: Qdran
             id=i,
             vector=vectors[i].tolist(),
             payload={
-                "product_id":  row["product_id"],
-                "corpus_text": row["corpus_text"],
-                "category":    str(row.get("category_name", "")),
+                "product_id":    row["product_id"],
+                "corpus_text":   row["corpus_text"],
+                "category_name": None if pd.isna(row.get("category_name")) or str(row.get("category_name","")).strip() == ""
+                                 else str(row["category_name"]).strip(),
             },
         ))
         if len(buf) == 256:
@@ -189,21 +229,29 @@ def retrieve_candidates(
     model: SentenceTransformer, client: QdrantClient,
 ) -> List[Dict]:
     q_vec = model.encode(QUERY_PREFIX + query, normalize_embeddings=True).tolist()
-    results = client.search(
-        collection_name=COLLECTION_NAME,
-        query_vector=q_vec,
-        limit=TOP_K + 5,
-        with_payload=True,
-    )
+    try:
+        results = client.search(
+            collection_name=COLLECTION_NAME,
+            query_vector=q_vec,
+            limit=TOP_K + 5,
+            with_payload=True,
+        )
+    except AttributeError:
+        results = client.query_points(
+            collection_name=COLLECTION_NAME,
+            query=q_vec,
+            limit=TOP_K + 5,
+            with_payload=True,
+        ).points
     candidates = []
     for r in results:
         pid = r.payload.get("product_id", "")
         if pid == pos_pid:
             continue
         candidates.append({
-            "product_id":  pid,
-            "corpus_text": r.payload.get("corpus_text", ""),
-            "category":    r.payload.get("category", ""),
+            "product_id":    pid,
+            "corpus_text":   r.payload.get("corpus_text", ""),
+            "category_name": r.payload.get("category_name", ""),
             "embed_score": r.score,
         })
         if len(candidates) >= TOP_K:
@@ -291,12 +339,12 @@ def batch_judge(
 def judge_candidates(
     query: str,
     candidates: List[Dict],
-    pos_category: str,
+    pos_category: Optional[str],
 ) -> Tuple[List[Dict], List[Dict]]:
     if not candidates:
         return [], []
 
-    scores_v1 = batch_judge(query, candidates, LLM_JUDGE_1, CLIENT_1, _limiter_1)
+    scores_v1 = batch_judge(query, candidates, LLM_JUDGE_1, _get_client_1(), _limiter_1)
     if not scores_v1:
         return [], []
 
@@ -312,7 +360,7 @@ def judge_candidates(
 
     hard_negatives = []
     if passed_v1:
-        scores_v2 = batch_judge(query, passed_v1, LLM_JUDGE_2, CLIENT_2, _limiter_2)
+        scores_v2 = batch_judge(query, passed_v1, LLM_JUDGE_2, _get_client_2(), _limiter_2)
         for i, cand in enumerate(passed_v1, 1):
             s = scores_v2.get(i)
             if s is not None and s <= 1:
@@ -326,7 +374,7 @@ def judge_candidates(
 
     easy_negatives = [
         c for c in easy_pool
-        if c.get("category", "") != pos_category
+        if c.get("category_name") is not None or pos_category != ""
     ][:N_EASY_NEG]
     if len(easy_negatives) < N_EASY_NEG:
         extra = [c for c in easy_pool if c not in easy_negatives]
@@ -379,7 +427,11 @@ def main(limit: Optional[int] = None):
 
     df_corpus = build_corpus(CORPUS_CSV)
     pid_to_corpus   = {str(r["product_id"]): r["corpus_text"] for _, r in df_corpus.iterrows()}
-    pid_to_category = {str(r["product_id"]): str(r.get("category_name","")) for _, r in df_corpus.iterrows()}
+    pid_to_category = {
+        str(r["product_id"]): (None if pd.isna(r.get("category_name")) or str(r.get("category_name","")).strip() == ""
+                               else str(r["category_name"]).strip())
+        for _, r in df_corpus.iterrows()
+    }
 
     log.info("Loading embedding model: %s", EMBED_MODEL)
     device = "cuda" if _has_cuda() else "cpu"
