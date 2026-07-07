@@ -49,7 +49,9 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Model paths (local)
 MODEL_PRETRAINED = "intfloat/multilingual-e5-base"
-MODEL_FT_V2 = str(BASE_DIR / "models" / "e5_base_finetune_v2")
+# Model fine-tuned có thể nằm ở final/ (sau giải nén từ Drive) hoặc models/e5_base_finetune_v2/
+_CANDIDATE_FT = [BASE_DIR / "final", BASE_DIR / "models" / "e5_base_finetune_v2"]
+MODEL_FT_V2 = str(next((p for p in _CANDIDATE_FT if (p / "config.json").exists()), _CANDIDATE_FT[0]))
 
 # Corpus (dùng catalog 28k cho cả BM25 + semantic)
 CORPUS_CSV = DATA_DIR / "Dataset_DATN_28k.csv"
